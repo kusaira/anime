@@ -23,7 +23,7 @@ async def cmd_start(message: Message, session: AsyncSession):
         )
         await message.answer(text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
     else:
-        await message.answer("Добро пожаловать назад!", reply_markup=get_main_menu())
+        await message.answer("Добро пожаловать назад на Свалку вандэрёнка!", reply_markup=get_main_menu())
 
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession):
