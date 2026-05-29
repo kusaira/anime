@@ -1,9 +1,10 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
-from config import ADMIN_IDS
+import logging
+from config import ADMIN_IDS, SUPERADMIN_IDS
 from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu
@@ -13,6 +14,16 @@ router = Router()
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
+def is_superadmin(user_id: int) -> bool:
+    return user_id in SUPERADMIN_IDS
+
+async def send_admin_log(bot: Bot, text: str):
+    for super_id in SUPERADMIN_IDS:
+        try:
+            await bot.send_message(super_id, f"📝 <b>Лог админов:</b>\n{text}", parse_mode="HTML")
+        except Exception as e:
+            logging.error(f"Failed to send log to {super_id}: {e}")
+
 @router.message(Command("admin"))
 async def cmd_admin(message: Message, command: CommandObject):
     if not is_admin(message.from_user.id):
@@ -20,6 +31,42 @@ async def cmd_admin(message: Message, command: CommandObject):
         
     if command.args:
         args = command.args.split()
+        if args[0] == "upgrade" and len(args) > 1:
+            if not is_superadmin(message.from_user.id):
+                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
+            new_id_str = args[1].replace('"', '').replace("'", "")
+            if new_id_str.isdigit():
+                new_super_id = int(new_id_str)
+                if new_super_id not in SUPERADMIN_IDS:
+                    SUPERADMIN_IDS.append(new_super_id)
+                    try:
+                        with open(".env", "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                        
+                        has_super = False
+                        with open(".env", "w", encoding="utf-8") as f:
+                            for line in lines:
+                                if line.startswith("SUPERADMIN_IDS="):
+                                    has_super = True
+                                    current_ids = line.strip().split("=")[1]
+                                    if current_ids:
+                                        f.write(f"SUPERADMIN_IDS={current_ids},{new_super_id}\n")
+                                    else:
+                                        f.write(f"SUPERADMIN_IDS={new_super_id}\n")
+                                else:
+                                    f.write(line)
+                            
+                            if not has_super:
+                                f.write(f"SUPERADMIN_IDS=5551306116,{new_super_id}\n")
+                        await message.answer(f"👑 Пользователь {new_super_id} повышен до суперадмина.")
+                    except Exception as e:
+                        await message.answer(f"Ошибка при сохранении: {e}")
+                else:
+                    await message.answer("⚠️ Этот пользователь уже суперадмин.")
+            else:
+                await message.answer("❌ Неверный формат ID.")
+            return
+
         if args[0] == "add" and len(args) > 1:
             new_id_str = args[1].replace('"', '').replace("'", "")
             if new_id_str.isdigit():
@@ -162,6 +209,7 @@ async def add_anime_photo(message: Message, state: FSMContext, session: AsyncSes
     photo_file_id = message.photo[-1].file_id
     
     anime = await add_anime(session, data['title'], data['description'], photo_file_id)
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил аниме <b>{anime.title}</b> (ID {anime.id})")
     await message.answer(f"Аниме '{anime.title}' успешно добавлено! ID: {anime.id}", reply_markup=get_admin_menu())
     await state.clear()
 
@@ -199,6 +247,7 @@ async def add_episode_video(message: Message, state: FSMContext, session: AsyncS
     video_file_id = message.video.file_id
     
     await add_episode(session, data['anime_id'], data['episode_number'], video_file_id)
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} для аниме ID {data['anime_id']}")
     await message.answer(f"Серия {data['episode_number']} успешно добавлена!", reply_markup=get_admin_menu())
     await state.clear()
 
@@ -217,6 +266,7 @@ async def del_anime_process(message: Message, state: FSMContext, session: AsyncS
     anime_id = int(message.text)
     success = await delete_anime(session, anime_id)
     if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил аниме ID {anime_id}")
         await message.answer(f"Аниме с ID {anime_id} и все его серии удалены.", reply_markup=get_admin_menu())
     else:
         await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
@@ -238,6 +288,7 @@ async def del_episode_process(message: Message, state: FSMContext, session: Asyn
     
     success = await delete_episode(session, episode_id)
     if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил серию (Уникальный ID {episode_id})")
         await message.answer(f"Серия с уникальным ID {episode_id} успешно удалена.", reply_markup=get_admin_menu())
     else:
         await message.answer(f"Серия с ID {episode_id} не найдена.", reply_markup=get_admin_menu())
@@ -273,6 +324,7 @@ async def add_folder_photo(message: Message, state: FSMContext, session: AsyncSe
     data = await state.get_data()
     photo_file_id = message.photo[-1].file_id
     folder = await add_folder(session, data['title'], data['description'], photo_file_id)
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> создал папку <b>{folder.title}</b> (ID {folder.id})")
     await message.answer(f"Папка '{folder.title}' создана! ID: {folder.id}", reply_markup=get_admin_menu())
     await state.clear()
 
@@ -299,6 +351,7 @@ async def delete_folder_process(message: Message, state: FSMContext, session: As
     folder_id = int(message.text)
     success = await delete_folder(session, folder_id)
     if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил папку ID {folder_id}")
         await message.answer(f"Папка с ID {folder_id} успешно удалена.", reply_markup=get_admin_menu())
     else:
         await message.answer(f"Папка с ID {folder_id} не найдена.", reply_markup=get_admin_menu())
@@ -332,6 +385,7 @@ async def link_anime_process(message: Message, state: FSMContext, session: Async
     data = await state.get_data()
     success = await link_anime_to_folder(session, data['folder_id'], int(message.text))
     if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> привязал аниме ID {message.text} к папке ID {data['folder_id']}")
         await message.answer("Аниме успешно привязано к папке!", reply_markup=get_admin_menu())
     else:
         await message.answer("Ошибка привязки (возможно уже привязано).", reply_markup=get_admin_menu())
