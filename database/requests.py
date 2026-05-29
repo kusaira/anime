@@ -11,6 +11,11 @@ async def get_all_users(session: AsyncSession):
     result = await session.execute(select(User))
     return result.scalars().all()
 
+async def get_user_by_username(session: AsyncSession, username: str):
+    username = username.lstrip("@")
+    result = await session.execute(select(User).where(User.username.ilike(username)))
+    return result.scalar_one_or_none()
+
 async def create_user(session: AsyncSession, telegram_id: int, username: str):
     user = User(telegram_id=telegram_id, username=username)
     session.add(user)

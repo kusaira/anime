@@ -1,10 +1,12 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.requests import get_user, create_user, get_favorites, get_history, get_all_anime, get_anime, get_all_folders, get_unlinked_anime, get_folder, get_anime_in_folder
+from database.requests import get_user, create_user, get_favorites, get_history, get_all_anime, get_anime, get_all_folders, get_unlinked_anime, get_folder, get_anime_in_folder, get_4k_anime, get_user_by_username
 from keyboards.reply import get_main_menu
 from keyboards.inline import get_payment_keyboard, get_catalog_keyboard, get_anime_keyboard, get_history_keyboard
+from datetime import datetime, timedelta
+from config import ADMIN_IDS
 
 router = Router()
 
@@ -20,6 +22,63 @@ async def cmd_start(message: Message, session: AsyncSession):
         "прямо в Telegram, без тормозов и назойливой рекламы."
     )
     await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
+
+@router.message(Command("premium"))
+async def cmd_premium(message: Message, command: CommandObject, session: AsyncSession):
+    user = await get_user(session, message.from_user.id)
+    
+    # Обработка /premium gift для админов
+    if command.args and command.args.startswith("gift") and message.from_user.id in ADMIN_IDS:
+        args = command.args.split()
+        if len(args) == 3:
+            days = args[1]
+            target_username = args[2]
+            if days.isdigit():
+                target_user = await get_user_by_username(session, target_username)
+                if target_user:
+                    now = datetime.utcnow()
+                    if target_user.is_premium and target_user.premium_until and target_user.premium_until > now:
+                        new_until = target_user.premium_until + timedelta(days=int(days))
+                    else:
+                        new_until = now + timedelta(days=int(days))
+                    
+                    target_user.is_premium = True
+                    target_user.premium_until = new_until
+                    await session.commit()
+                    
+                    await message.answer(f"✅ Пользователю {target_username} выдана подписка на {days} дней!")
+                    try:
+                        await message.bot.send_message(
+                            target_user.telegram_id, 
+                            f"🎉 <b>Вам подарили премиум подписку!</b>\n\nДлительность: <b>{days} дней</b>.\nНаслаждайтесь просмотром!", 
+                            parse_mode="HTML"
+                        )
+                    except:
+                        pass
+                else:
+                    await message.answer("❌ Пользователь с таким юзернеймом не найден в базе.")
+            else:
+                await message.answer("❌ Количество дней должно быть числом.")
+        else:
+            await message.answer("❌ Формат: /premium gift [дни] [@username]")
+        return
+
+    # Логика для обычных юзеров
+    if user and user.is_premium and user.premium_until:
+        if user.premium_until > datetime.utcnow():
+            days_left = (user.premium_until - datetime.utcnow()).days
+            text = f"✨ <b>Ваша премиум подписка активна!</b>\n\nОсталось дней: <b>{days_left}</b>"
+            return await message.answer(text, parse_mode="HTML")
+        else:
+            user.is_premium = False
+            await session.commit()
+            
+    text = (
+        "😔 <b>У вас нет активной подписки.</b>\n\n"
+        "Для оформления подписки и получения доступа к эксклюзивным "
+        "функциям, напишите в саппорт: @ВашСаппорт"
+    )
+    await message.answer(text, parse_mode="HTML")
 
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession):

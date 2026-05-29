@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
@@ -46,6 +47,25 @@ async def cmd_logs(message: Message):
         await message.answer(text, parse_mode="HTML")
     except FileNotFoundError:
         await message.answer("Файл логов пока не создан (админы еще ничего не делали).")
+
+@router.message(Command("ad"))
+async def cmd_ad(message: Message, command: CommandObject, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    if not command.args:
+        return await message.answer("❌ Напишите текст для рассылки после команды /ad.")
+        
+    users = await get_all_users(session)
+    count = 0
+    await message.answer("⏳ Начинаю рассылку...")
+    for u in users:
+        try:
+            await message.bot.send_message(u.telegram_id, command.args, parse_mode="HTML")
+            count += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+            
+    await message.answer(f"✅ Рассылка завершена. Доставлено {count} пользователям.")
 
 @router.message(Command("admin"))
 async def cmd_admin(message: Message, command: CommandObject):
