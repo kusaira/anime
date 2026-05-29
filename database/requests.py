@@ -71,8 +71,10 @@ async def delete_episode(session: AsyncSession, episode_id: int):
     return False
 
 async def search_anime(session: AsyncSession, query: str):
-    result = await session.execute(select(Anime).where(Anime.title.ilike(f"%{query}%")))
-    return result.scalars().all()
+    query_lower = query.lower()
+    result = await session.execute(select(Anime))
+    all_anime = result.scalars().all()
+    return [a for a in all_anime if query_lower in a.title.lower()]
 
 async def get_anime(session: AsyncSession, anime_id: int):
     result = await session.execute(select(Anime).where(Anime.id == anime_id))
@@ -183,8 +185,10 @@ async def get_all_folders(session: AsyncSession):
     return result.scalars().all()
 
 async def search_folders(session: AsyncSession, query: str):
-    result = await session.execute(select(Folder).where(Folder.title.ilike(f"%{query}%")))
-    return result.scalars().all()
+    query_lower = query.lower()
+    result = await session.execute(select(Folder))
+    all_folders = result.scalars().all()
+    return [f for f in all_folders if query_lower in f.title.lower()]
 
 async def link_anime_to_folder(session: AsyncSession, folder_id: int, anime_id: int):
     # Проверка на существование линка
