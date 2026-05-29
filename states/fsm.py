@@ -17,8 +17,10 @@ class AdminDeleteAnime(StatesGroup):
     waiting_for_anime_id = State()
 
 class AdminDeleteEpisode(StatesGroup):
+    waiting_for_episode_id = State()
+
+class AdminListEpisodes(StatesGroup):
     waiting_for_anime_id = State()
-    waiting_for_episode_number = State()
 
 class AdminAddFolder(StatesGroup):
     waiting_for_title = State()

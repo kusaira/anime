@@ -4,8 +4,8 @@ from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from config import ADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder
-from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes
+from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu
 
 router = Router()
@@ -91,6 +91,38 @@ async def admin_list_users(message: Message, session: AsyncSession):
         text += f"ID: {u.id} | TG: {u.telegram_id} | @{u.username} | Премиум: {'Да' if u.is_premium else 'Нет'}\n"
     
     await message.answer(text, parse_mode="HTML")
+
+@router.message(F.text == "Список серий аниме")
+async def admin_list_episodes_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    animes = await get_all_anime(session)
+    if not animes:
+        return await message.answer("Сначала добавьте хотя бы одно аниме.")
+    
+    text = "Доступные аниме:\n" + "\n".join([f"{a.id}. {a.title}" for a in animes])
+    await message.answer(text + "\n\nВведите ID аниме для просмотра его серий:", reply_markup=get_cancel_menu())
+    await state.set_state(AdminListEpisodes.waiting_for_anime_id)
+
+@router.message(AdminListEpisodes.waiting_for_anime_id)
+async def admin_list_episodes_process(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    
+    anime_id = int(message.text)
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        return await message.answer("Аниме с таким ID не найдено.", reply_markup=get_admin_menu())
+    
+    episodes = await get_episodes(session, anime_id)
+    if not episodes:
+        await message.answer(f"В аниме '{anime.title}' пока нет залитых серий.", reply_markup=get_admin_menu())
+    else:
+        text = f"📺 <b>Список серий аниме '{anime.title}':</b>\n\n"
+        for ep in episodes:
+            text += f"Уникальный ID {ep.id} — Серия {ep.episode_number}\n"
+        text += "\n<i>* Используйте Уникальный ID для точного удаления серии.</i>"
+        await message.answer(text, reply_markup=get_admin_menu(), parse_mode="HTML")
+    await state.clear()
 
 # --- Добавление аниме ---
 @router.message(F.text == "Добавить аниме")
@@ -194,31 +226,21 @@ async def del_anime_process(message: Message, state: FSMContext, session: AsyncS
 @router.message(F.text == "Удалить серию")
 async def del_episode_start(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
-    await state.set_state(AdminDeleteEpisode.waiting_for_anime_id)
+    await message.answer("Введите Уникальный ID серии для удаления (его можно узнать в 'Список серий аниме'):", reply_markup=get_cancel_menu())
+    await state.set_state(AdminDeleteEpisode.waiting_for_episode_id)
 
-@router.message(AdminDeleteEpisode.waiting_for_anime_id)
-async def del_episode_anime_id(message: Message, state: FSMContext):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    await state.update_data(anime_id=int(message.text))
-    await message.answer("Введите номер серии для удаления:")
-    await state.set_state(AdminDeleteEpisode.waiting_for_episode_number)
-
-@router.message(AdminDeleteEpisode.waiting_for_episode_number)
+@router.message(AdminDeleteEpisode.waiting_for_episode_id)
 async def del_episode_process(message: Message, state: FSMContext, session: AsyncSession):
     if not message.text.isdigit():
-        return await message.answer("Номер должен быть числом.")
+        return await message.answer("ID должен быть числом.")
     
-    data = await state.get_data()
-    anime_id = data['anime_id']
-    episode_number = int(message.text)
+    episode_id = int(message.text)
     
-    success = await delete_episode(session, anime_id, episode_number)
+    success = await delete_episode(session, episode_id)
     if success:
-        await message.answer(f"Серия {episode_number} у аниме {anime_id} удалена.", reply_markup=get_admin_menu())
+        await message.answer(f"Серия с уникальным ID {episode_id} успешно удалена.", reply_markup=get_admin_menu())
     else:
-        await message.answer(f"Серия {episode_number} не найдена.", reply_markup=get_admin_menu())
+        await message.answer(f"Серия с ID {episode_id} не найдена.", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Создание папки ---

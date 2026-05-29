@@ -46,8 +46,8 @@ async def delete_anime(session: AsyncSession, anime_id: int):
         return True
     return False
 
-async def delete_episode(session: AsyncSession, anime_id: int, episode_number: int):
-    episode = await get_episode(session, anime_id, episode_number)
+async def delete_episode(session: AsyncSession, episode_id: int):
+    episode = await get_episode_by_id(session, episode_id)
     if episode:
         await session.delete(episode)
         await session.commit()
@@ -79,6 +79,10 @@ async def get_episode(session: AsyncSession, anime_id: int, episode_number: int)
         select(Episode)
         .where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
     )
+    return result.scalar_one_or_none()
+
+async def get_episode_by_id(session: AsyncSession, episode_id: int):
+    result = await session.execute(select(Episode).where(Episode.id == episode_id))
     return result.scalar_one_or_none()
 
 async def toggle_favorite(session: AsyncSession, user_id: int, anime_id: int):
