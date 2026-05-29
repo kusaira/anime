@@ -4,6 +4,7 @@ from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
 from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime
@@ -18,11 +19,33 @@ def is_superadmin(user_id: int) -> bool:
     return user_id in SUPERADMIN_IDS
 
 async def send_admin_log(bot: Bot, text: str):
-    for super_id in SUPERADMIN_IDS:
-        try:
-            await bot.send_message(super_id, f"📝 <b>Лог админов:</b>\n{text}", parse_mode="HTML")
-        except Exception as e:
-            logging.error(f"Failed to send log to {super_id}: {e}")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"[{timestamp}] {text}\n"
+    
+    with open("admin_actions.log", "a", encoding="utf-8") as f:
+        f.write(log_entry)
+
+@router.message(Command("logs"))
+async def cmd_logs(message: Message):
+    if not is_superadmin(message.from_user.id):
+        return
+        
+    try:
+        with open("admin_actions.log", "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            
+        if not lines:
+            return await message.answer("Логи пусты.")
+            
+        # Отправляем последние 20 действий
+        last_logs = lines[-20:]
+        text = "📝 <b>Последние действия админов:</b>\n\n"
+        for line in last_logs:
+            text += f"• {line}"
+            
+        await message.answer(text, parse_mode="HTML")
+    except FileNotFoundError:
+        await message.answer("Файл логов пока не создан (админы еще ничего не делали).")
 
 @router.message(Command("admin"))
 async def cmd_admin(message: Message, command: CommandObject):
