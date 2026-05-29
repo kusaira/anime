@@ -77,7 +77,7 @@ async def cmd_premium(message: Message, session: AsyncSession, command: CommandO
     text = (
         "😔 <b>У вас нет активной подписки.</b>\n\n"
         "Для оформления подписки и получения доступа к эксклюзивным "
-        "функциям, напишите в саппорт: @ВашСаппорт"
+        "функциям, напишите в саппорт: @yto4ka39"
     )
     await message.answer(text, parse_mode="HTML")
 
