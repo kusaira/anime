@@ -351,22 +351,56 @@ async def edit_anime_desc(message: Message, state: FSMContext, session: AsyncSes
 @router.message(F.text == "Удалить серию")
 async def del_episode_start(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите Уникальный ID серии для удаления (его можно узнать в 'Список серий аниме'):", reply_markup=get_cancel_menu())
+    await message.answer("Введите Уникальный ID серии для удаления.\nМожно удалить несколько: через запятую (1, 3, 5) или диапазоном (10-15):", reply_markup=get_cancel_menu())
     await state.set_state(AdminDeleteEpisode.waiting_for_episode_id)
 
 @router.message(AdminDeleteEpisode.waiting_for_episode_id)
 async def del_episode_process(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
+    text = message.text.replace(" ", "")
+    ids_to_delete = set()
     
-    episode_id = int(message.text)
+    try:
+        if "-" in text:
+            parts = text.split("-")
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start, end = int(parts[0]), int(parts[1])
+                ids_to_delete.update(range(start, end + 1))
+            else:
+                raise ValueError
+        elif "," in text:
+            parts = text.split(",")
+            for p in parts:
+                if p.isdigit():
+                    ids_to_delete.add(int(p))
+                else:
+                    raise ValueError
+        elif text.isdigit():
+            ids_to_delete.add(int(text))
+        else:
+            raise ValueError
+    except ValueError:
+        return await message.answer("❌ Неверный формат. Используйте одно число (5), диапазон (5-10) или перечисление (1,5,7).")
     
-    success = await delete_episode(session, episode_id)
-    if success:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил серию (Уникальный ID {episode_id})")
-        await message.answer(f"Серия с уникальным ID {episode_id} успешно удалена.", reply_markup=get_admin_menu())
+    deleted_count = 0
+    not_found_count = 0
+    
+    for ep_id in ids_to_delete:
+        success = await delete_episode(session, ep_id)
+        if success:
+            deleted_count += 1
+        else:
+            not_found_count += 1
+            
+    if deleted_count > 0:
+        ids_str = ", ".join(map(str, sorted(list(ids_to_delete))))
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил серии (ID: {ids_str})")
+        msg_text = f"✅ Успешно удалено серий: {deleted_count}."
+        if not_found_count > 0:
+            msg_text += f"\n⚠️ Не найдено серий: {not_found_count}."
+        await message.answer(msg_text, reply_markup=get_admin_menu())
     else:
-        await message.answer(f"Серия с ID {episode_id} не найдена.", reply_markup=get_admin_menu())
+        await message.answer("❌ Ни одна серия не была найдена.", reply_markup=get_admin_menu())
+        
     await state.clear()
 
 # --- Создание папки ---
