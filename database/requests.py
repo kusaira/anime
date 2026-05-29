@@ -46,6 +46,17 @@ async def delete_anime(session: AsyncSession, anime_id: int):
         return True
     return False
 
+async def update_anime(session: AsyncSession, anime_id: int, title: str = None, description: str = None):
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        return False
+    if title:
+        anime.title = title
+    if description:
+        anime.description = description
+    await session.commit()
+    return True
+
 async def delete_episode(session: AsyncSession, episode_id: int):
     episode = await get_episode_by_id(session, episode_id)
     if episode:

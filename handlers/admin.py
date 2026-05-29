@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes
-from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime
+from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu
 
 router = Router()
@@ -293,6 +293,58 @@ async def del_anime_process(message: Message, state: FSMContext, session: AsyncS
         await message.answer(f"Аниме с ID {anime_id} и все его серии удалены.", reply_markup=get_admin_menu())
     else:
         await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
+    await state.clear()
+
+# --- Редактирование аниме ---
+@router.message(F.text == "Редактировать аниме")
+async def edit_anime_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите ID аниме для редактирования:", reply_markup=get_cancel_menu())
+    await state.set_state(AdminEditAnime.waiting_for_anime_id)
+
+@router.message(AdminEditAnime.waiting_for_anime_id)
+async def edit_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    anime_id = int(message.text)
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        return await message.answer("Аниме не найдено.", reply_markup=get_admin_menu())
+    
+    await state.update_data(anime_id=anime_id)
+    await message.answer(f"Текущее название: <b>{anime.title}</b>\nВведите новое название (или отправьте '-', чтобы оставить текущее):", parse_mode="HTML")
+    await state.set_state(AdminEditAnime.waiting_for_new_title)
+
+@router.message(AdminEditAnime.waiting_for_new_title)
+async def edit_anime_title(message: Message, state: FSMContext, session: AsyncSession):
+    title = message.text.strip()
+    if title == "-":
+        title = None
+    
+    await state.update_data(new_title=title)
+    
+    data = await state.get_data()
+    anime = await get_anime(session, data['anime_id'])
+    
+    await message.answer(f"Текущее описание:\n<i>{anime.description}</i>\n\nВведите новое описание (или отправьте '-', чтобы оставить текущее):", parse_mode="HTML")
+    await state.set_state(AdminEditAnime.waiting_for_new_description)
+
+@router.message(AdminEditAnime.waiting_for_new_description)
+async def edit_anime_desc(message: Message, state: FSMContext, session: AsyncSession):
+    desc = message.text.strip()
+    if desc == "-":
+        desc = None
+        
+    data = await state.get_data()
+    anime_id = data['anime_id']
+    title = data.get('new_title')
+    
+    success = await update_anime(session, anime_id, title=title, description=desc)
+    if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> отредактировал название/описание аниме ID {anime_id}")
+        await message.answer("Аниме успешно обновлено!", reply_markup=get_admin_menu())
+    else:
+        await message.answer("Ошибка при обновлении аниме.", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Удаление серии ---

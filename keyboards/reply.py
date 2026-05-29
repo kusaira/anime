@@ -16,6 +16,7 @@ def get_admin_menu():
             [KeyboardButton(text="Создать папку"), KeyboardButton(text="Удалить папку")],
             [KeyboardButton(text="Привязать аниме к папке")],
             [KeyboardButton(text="Добавить аниме"), KeyboardButton(text="Удалить аниме")],
+            [KeyboardButton(text="Редактировать аниме")],
             [KeyboardButton(text="Добавить серию"), KeyboardButton(text="Удалить серию")],
             [KeyboardButton(text="Список залитого аниме"), KeyboardButton(text="Список серий аниме")],
             [KeyboardButton(text="Список пользователей"), KeyboardButton(text="🔙 В главное меню")]
