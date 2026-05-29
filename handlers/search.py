@@ -18,14 +18,8 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
     query = message.text
     anime_results = await search_anime(session, query)
     folder_results = await search_folders(session, query)
-    
-    # Filter anime_results to only show unlinked anime
-    unlinked_anime = []
-    for a in anime_results:
-        if not await is_anime_in_any_folder(session, a.id):
-            unlinked_anime.append(a)
             
-    results = list(folder_results) + list(unlinked_anime)
+    results = list(folder_results) + list(anime_results)
     
     if not results:
         await message.answer("По вашему запросу ничего не найдено.")
@@ -37,27 +31,25 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
     if len(results) == 1:
         item = results[0]
         if type(item).__name__ == "Folder":
-            text = f"📁 <b>{item.title}</b>\n\n{item.description}\n\nОткройте каталог для просмотра серий (в разработке)."
-            # Or ideally we could call the callback handler logic, but simple message is fine or redirect to catalog view
-            # Since we have get_catalog_keyboard, we can just show it directly.
-            # But we don't have anime list for this folder here. It's better to show the choice even for 1 folder.
-            pass
-            
-        # If it's anime
-        anime = item
-        is_fav = False
-        
-        # Check if it's actually anime (has photo_file_id but no type check, but let's assume if it's 1 it might be anime)
-        if type(item).__name__ == "Folder":
-             await message.answer(
+            await message.answer(
                 "Найдена одна папка. Нажмите чтобы открыть:",
                 reply_markup=get_catalog_keyboard(results)
             )
-             return
+            return
+            
+        # Если это аниме
+        anime = item
+        
+        user = await get_user(session, message.from_user.id)
+        from database.requests import get_favorites
+        favs = await get_favorites(session, user.id)
+        is_fav = any(f.id == anime.id for f in favs) if favs else False
+        
+        quality_tag = " [4K]" if getattr(anime, 'is_4k', False) else ""
         
         await message.answer_photo(
             photo=anime.photo_file_id,
-            caption=f"🎬 <b>{anime.title}</b>\n\n{anime.description}",
+            caption=f"🎬 <b>{anime.title}</b>{quality_tag}\n\n{anime.description}",
             reply_markup=get_anime_keyboard(anime.id, is_fav),
             parse_mode="HTML"
         )
