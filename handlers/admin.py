@@ -110,7 +110,41 @@ async def cmd_admin(message: Message, command: CommandObject):
                 await message.answer("❌ Неверный формат ID.")
             return
 
+        if args[0] == "remove" and len(args) > 1:
+            if not is_superadmin(message.from_user.id):
+                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
+            
+            remove_id_str = args[1].replace('"', '').replace("'", "")
+            if remove_id_str.isdigit():
+                remove_id = int(remove_id_str)
+                if remove_id in ADMIN_IDS:
+                    ADMIN_IDS.remove(remove_id)
+                    try:
+                        with open(".env", "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                        
+                        with open(".env", "w", encoding="utf-8") as f:
+                            for line in lines:
+                                if line.startswith("ADMIN_IDS="):
+                                    current_ids = [int(x) for x in line.strip().split("=")[1].split(",") if x]
+                                    if remove_id in current_ids:
+                                        current_ids.remove(remove_id)
+                                    f.write(f"ADMIN_IDS={','.join(map(str, current_ids))}\n")
+                                else:
+                                    f.write(line)
+                        await message.answer(f"✅ Пользователь {remove_id} удален из администраторов.")
+                    except Exception as e:
+                        await message.answer(f"Ошибка при сохранении: {e}")
+                else:
+                    await message.answer("⚠️ Этот пользователь не является администратором.")
+            else:
+                await message.answer("❌ Неверный формат ID.")
+            return
+
         if args[0] == "add" and len(args) > 1:
+            if not is_superadmin(message.from_user.id):
+                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
+                
             new_id_str = args[1].replace('"', '').replace("'", "")
             if new_id_str.isdigit():
                 new_admin_id = int(new_id_str)
