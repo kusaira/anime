@@ -24,11 +24,12 @@ async def cmd_start(message: Message, session: AsyncSession):
     await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
 
 @router.message(Command("premium"))
-async def cmd_premium(message: Message, command: CommandObject, session: AsyncSession):
+@router.message(F.text == "💎 Подписка")
+async def cmd_premium(message: Message, session: AsyncSession, command: CommandObject = None):
     user = await get_user(session, message.from_user.id)
     
     # Обработка /premium gift для админов
-    if command.args and command.args.startswith("gift") and message.from_user.id in ADMIN_IDS:
+    if command and command.args and command.args.startswith("gift") and message.from_user.id in ADMIN_IDS:
         args = command.args.split()
         if len(args) == 3:
             days = args[1]
