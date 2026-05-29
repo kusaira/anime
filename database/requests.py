@@ -132,7 +132,7 @@ async def update_history(session: AsyncSession, user_id: int, anime_id: int, epi
     )
     hist = result.scalar_one_or_none()
     if hist:
-        hist.last_episode_number = episode_number
+        hist.last_episode_number = max(hist.last_episode_number, episode_number)
         hist.updated_at = datetime.utcnow()
     else:
         hist = History(user_id=user_id, anime_id=anime_id, last_episode_number=episode_number)

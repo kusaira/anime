@@ -108,4 +108,15 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession):
     # Обновляем историю
     user = await get_user(session, callback.from_user.id)
     await update_history(session, user.id, anime_id, ep_num)
+    
+    # Обновляем клавиатуру, чтобы галочка появилась сразу
+    history = await get_user_history_for_anime(session, user.id, anime_id)
+    episodes = await get_episodes(session, anime_id)
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=get_episodes_keyboard(anime_id, episodes, history.last_episode_number)
+        )
+    except Exception:
+        pass # Игнорируем, если клавиатура не изменилась (например, кликнули ту же серию)
+        
     await callback.answer()
