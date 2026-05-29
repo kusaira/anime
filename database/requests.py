@@ -46,6 +46,11 @@ async def add_episode(session: AsyncSession, anime_id: int, episode_number: int,
 async def delete_anime(session: AsyncSession, anime_id: int):
     anime = await get_anime(session, anime_id)
     if anime:
+        from sqlalchemy import delete
+        await session.execute(delete(FolderItem).where(FolderItem.anime_id == anime_id))
+        await session.execute(delete(Episode).where(Episode.anime_id == anime_id))
+        await session.execute(delete(Favorite).where(Favorite.anime_id == anime_id))
+        await session.execute(delete(History).where(History.anime_id == anime_id))
         await session.delete(anime)
         await session.commit()
         return True
@@ -167,6 +172,8 @@ async def add_folder(session: AsyncSession, title: str, description: str, photo_
 async def delete_folder(session: AsyncSession, folder_id: int):
     folder = await get_folder(session, folder_id)
     if folder:
+        from sqlalchemy import delete
+        await session.execute(delete(FolderItem).where(FolderItem.folder_id == folder_id))
         await session.delete(folder)
         await session.commit()
         return True
@@ -223,8 +230,17 @@ async def get_folder_for_anime(session: AsyncSession, anime_id: int):
     return result.scalar_one_or_none()
 
 async def get_unlinked_anime(session: AsyncSession, is_4k: bool = False):
+    # Считаем привязанными только те аниме, папки которых реально существуют
+    valid_folder_items = select(FolderItem.anime_id).join(Folder, Folder.id == FolderItem.folder_id)
+    
+    if is_4k:
+        condition = Anime.is_4k == True
+    else:
+        from sqlalchemy import or_
+        condition = or_(Anime.is_4k == False, Anime.is_4k.is_(None))
+        
     result = await session.execute(
-        select(Anime).where(~Anime.id.in_(select(FolderItem.anime_id)), Anime.is_4k == is_4k)
+        select(Anime).where(~Anime.id.in_(valid_folder_items), condition)
     )
     return result.scalars().all()
 
