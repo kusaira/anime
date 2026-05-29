@@ -8,7 +8,7 @@ import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
 from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime
-from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu
+from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard
 
 router = Router()
 
@@ -216,7 +216,17 @@ async def add_anime_title(message: Message, state: FSMContext, session: AsyncSes
 @router.message(AdminAddAnime.waiting_for_description)
 async def add_anime_desc(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
-    await message.answer("Отправьте постер (фото) аниме:")
+    await message.answer("Выберите качество аниме:", reply_markup=get_quality_keyboard())
+    await state.set_state(AdminAddAnime.waiting_for_quality)
+
+@router.message(AdminAddAnime.waiting_for_quality)
+async def add_anime_quality(message: Message, state: FSMContext):
+    if message.text == "4K (Высокое)":
+        await state.update_data(is_4k=True)
+    else:
+        await state.update_data(is_4k=False)
+        
+    await message.answer("Отправьте постер (фото) аниме:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddAnime.waiting_for_photo)
 
 @router.message(AdminAddAnime.waiting_for_photo, F.photo)
@@ -231,7 +241,7 @@ async def add_anime_photo(message: Message, state: FSMContext, session: AsyncSes
     data = await state.get_data()
     photo_file_id = message.photo[-1].file_id
     
-    anime = await add_anime(session, data['title'], data['description'], photo_file_id)
+    anime = await add_anime(session, data['title'], data['description'], photo_file_id, data.get('is_4k', False))
     await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил аниме <b>{anime.title}</b> (ID {anime.id})")
     await message.answer(f"Аниме '{anime.title}' успешно добавлено! ID: {anime.id}", reply_markup=get_admin_menu())
     await state.clear()

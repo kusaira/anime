@@ -19,6 +19,7 @@ class Anime(Base):
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(String)
     photo_file_id: Mapped[str] = mapped_column(String)
+    is_4k: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class Episode(Base):
     __tablename__ = 'episodes'

@@ -25,8 +25,8 @@ async def set_premium(session: AsyncSession, telegram_id: int, premium_until: da
     )
     await session.commit()
 
-async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str):
-    anime = Anime(title=title, description=description, photo_file_id=photo_file_id)
+async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False):
+    anime = Anime(title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k)
     session.add(anime)
     await session.commit()
     await session.refresh(anime)
@@ -213,8 +213,12 @@ async def get_folder_for_anime(session: AsyncSession, anime_id: int):
     )
     return result.scalar_one_or_none()
 
-async def get_unlinked_anime(session: AsyncSession):
+async def get_unlinked_anime(session: AsyncSession, is_4k: bool = False):
     result = await session.execute(
-        select(Anime).where(~Anime.id.in_(select(FolderItem.anime_id)))
+        select(Anime).where(~Anime.id.in_(select(FolderItem.anime_id)), Anime.is_4k == is_4k)
     )
+    return result.scalars().all()
+
+async def get_4k_anime(session: AsyncSession):
+    result = await session.execute(select(Anime).where(Anime.is_4k == True))
     return result.scalars().all()

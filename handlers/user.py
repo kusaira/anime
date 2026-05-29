@@ -14,25 +14,17 @@ async def cmd_start(message: Message, session: AsyncSession):
     if not user:
         user = await create_user(session, message.from_user.id, message.from_user.username)
     
-    if not user.is_premium:
-        text = (
-            "🎥 <b>Добро пожаловать на Kusaira! Аниме в 4к!</b>\n\n"
-            "Здесь вы можете смотреть любимые аниме в <b>оригинальном 4K качестве</b> "
-            "прямо в Telegram, без тормозов и назойливой рекламы.\n\n"
-            "✨ <i>Для доступа к базе оформите подписку.</i>"
-        )
-        await message.answer(text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
-    else:
-        await message.answer("Добро пожаловать на Kusaira! Аниме в 4к!", reply_markup=get_main_menu())
+    text = (
+        "🎥 <b>Добро пожаловать на Kusaira! Аниме в 4к!</b>\n\n"
+        "Здесь вы можете смотреть любимые аниме в <b>оригинальном качестве</b> "
+        "прямо в Telegram, без тормозов и назойливой рекламы."
+    )
+    await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
 
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession):
-    user = await get_user(session, message.from_user.id)
-    if not user or not user.is_premium:
-        return await message.answer("Доступно только по подписке.")
-    
     folders = await get_all_folders(session)
-    unlinked = await get_unlinked_anime(session)
+    unlinked = await get_unlinked_anime(session, is_4k=False)
     items = list(folders) + list(unlinked)
     
     if not items:
@@ -40,6 +32,21 @@ async def show_catalog(message: Message, session: AsyncSession):
     
     await message.answer(
         "📚 <b>Выберите из каталога:</b>",
+        reply_markup=get_catalog_keyboard(items),
+        parse_mode="HTML"
+    )
+
+from database.requests import get_4k_anime
+
+@router.message(F.text == "📺 Каталог 4К")
+async def show_4k_catalog(message: Message, session: AsyncSession):
+    items = await get_4k_anime(session)
+    
+    if not items:
+        return await message.answer("Каталог 4К пока пуст.")
+    
+    await message.answer(
+        "📺 <b>Выберите аниме в 4К качестве:</b>",
         reply_markup=get_catalog_keyboard(items),
         parse_mode="HTML"
     )
@@ -91,9 +98,6 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession):
 @router.message(F.text == "⭐ Избранное")
 async def show_favorites(message: Message, session: AsyncSession):
     user = await get_user(session, message.from_user.id)
-    if not user or not user.is_premium:
-        return await message.answer("Доступно только по подписке.")
-    
     favs = await get_favorites(session, user.id)
     if not favs:
         return await message.answer("Ваш список избранного пуст.")
@@ -107,9 +111,6 @@ async def show_favorites(message: Message, session: AsyncSession):
 @router.message(F.text == "🕒 История")
 async def show_history(message: Message, session: AsyncSession):
     user = await get_user(session, message.from_user.id)
-    if not user or not user.is_premium:
-        return await message.answer("Доступно только по подписке.")
-    
     hist = await get_history(session, user.id)
     if not hist:
         return await message.answer("Вы еще ничего не смотрели.")
