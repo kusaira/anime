@@ -16,14 +16,14 @@ async def cmd_start(message: Message, session: AsyncSession):
     
     if not user.is_premium:
         text = (
-            "🎥 <b>Добро пожаловать на Свалку вандэрёнка!</b>\n\n"
+            "🎥 <b>Добро пожаловать на Kusaira! Аниме в 4к!</b>\n\n"
             "Здесь вы можете смотреть любимые аниме в <b>оригинальном 4K качестве</b> "
             "прямо в Telegram, без тормозов и назойливой рекламы.\n\n"
             "✨ <i>Для доступа к базе оформите подписку.</i>"
         )
         await message.answer(text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
     else:
-        await message.answer("Добро пожаловать на Свалку вандэрёнка!", reply_markup=get_main_menu())
+        await message.answer("Добро пожаловать на Kusaira! Аниме в 4к!", reply_markup=get_main_menu())
 
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession):
