@@ -41,6 +41,10 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         anime = item
         
         user = await get_user(session, message.from_user.id)
+        if not user:
+            from database.requests import create_user
+            user = await create_user(session, message.from_user.id, message.from_user.username)
+            
         from database.requests import get_favorites
         favs = await get_favorites(session, user.id)
         is_fav = any(f.id == anime.id for f in favs) if favs else False
