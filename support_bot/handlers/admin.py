@@ -6,9 +6,9 @@ from database import get_mapping_by_admin_msg
 router = Router()
 
 @router.message(F.reply_to_message)
-async def reply_to_user(message: Message, session: AsyncSession, admin_chat_id: int):
-    # Работаем только в чате админа
-    if message.chat.id != admin_chat_id:
+async def reply_to_user(message: Message, session: AsyncSession, admin_chat_ids: list):
+    # Работаем только в чатах админов
+    if message.chat.id not in admin_chat_ids:
         return
         
     admin_msg_id = message.reply_to_message.message_id

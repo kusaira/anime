@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
-from config import BOT_TOKEN, ADMIN_CHAT_ID
+from config import BOT_TOKEN, ADMIN_CHAT_IDS
 from database import init_db, AsyncSessionLocal
 from middlewares import ThrottlingMiddleware, DbSessionMiddleware
 from handlers import user, admin
@@ -17,8 +17,8 @@ async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
     
-    # Передаем admin_chat_id во все хендлеры
-    dp.workflow_data.update({'admin_chat_id': ADMIN_CHAT_ID})
+    # Передаем admin_chat_ids во все хендлеры
+    dp.workflow_data.update({'admin_chat_ids': ADMIN_CHAT_IDS})
     
     # Подключаем middlewares
     dp.message.middleware(ThrottlingMiddleware(limit_seconds=2))

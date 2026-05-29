@@ -18,7 +18,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         current_time = time.time()
         
         # Разрешаем админам писать без лимитов (чтобы не блокировать ответы)
-        if user_id == data.get("admin_chat_id"):
+        if user_id in data.get("admin_chat_ids", []):
             return await handler(event, data)
 
         if user_id in self.users:

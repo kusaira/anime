@@ -16,9 +16,9 @@ async def cmd_start(message: Message):
     await message.answer(text, parse_mode="HTML")
 
 @router.message()
-async def forward_to_admin(message: Message, session: AsyncSession, admin_chat_id: int):
-    # Если пишет сам админ в админском чате (не реплай), игнорируем
-    if message.chat.id == admin_chat_id:
+async def forward_to_admin(message: Message, session: AsyncSession, admin_chat_ids: list):
+    # Если пишет сам админ в личку боту (не реплай), игнорируем
+    if message.chat.id in admin_chat_ids:
         return
         
     # Формируем информационную шапку
@@ -30,18 +30,20 @@ async def forward_to_admin(message: Message, session: AsyncSession, admin_chat_i
         f"──────────────"
     )
     
-    # Отправляем шапку
-    await message.bot.send_message(admin_chat_id, info_text, parse_mode="HTML")
-    
-    # Копируем само сообщение пользователя
-    sent_msg = await message.copy_to(admin_chat_id)
-    
-    # Сохраняем маппинг в БД, чтобы знать, куда отвечать
-    await save_message_mapping(
-        session,
-        admin_msg_id=sent_msg.message_id,
-        user_tg_id=message.from_user.id,
-        user_msg_id=message.message_id
-    )
+    # Отправляем каждому админу
+    for admin_id in admin_chat_ids:
+        try:
+            await message.bot.send_message(admin_id, info_text, parse_mode="HTML")
+            sent_msg = await message.copy_to(admin_id)
+            
+            # Сохраняем маппинг в БД для каждого админа
+            await save_message_mapping(
+                session,
+                admin_msg_id=sent_msg.message_id,
+                user_tg_id=message.from_user.id,
+                user_msg_id=message.message_id
+            )
+        except Exception:
+            pass
     
     await message.answer("✅ Ваше сообщение доставлено в поддержку. Ожидайте ответа.")
