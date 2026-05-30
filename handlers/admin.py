@@ -68,112 +68,112 @@ async def cmd_ad(message: Message, command: CommandObject, session: AsyncSession
             
     await message.answer(f"✅ Рассылка завершена. Доставлено {count} пользователям.")
 
+@router.message(Command("superadmin"))
+async def cmd_superadmin(message: Message, command: CommandObject):
+    if not is_superadmin(message.from_user.id):
+        return
+        
+    if not command.args:
+        return await message.answer("Использование:\n/superadmin add [ID]\n/superadmin remove [ID]\n/superadmin upgrade [ID]")
+        
+    args = command.args.split()
+    
+    if args[0] == "upgrade" and len(args) > 1:
+        new_id_str = args[1].replace('"', '').replace("'", "")
+        if new_id_str.isdigit():
+            new_super_id = int(new_id_str)
+            if new_super_id not in SUPERADMIN_IDS:
+                SUPERADMIN_IDS.append(new_super_id)
+                try:
+                    with open(".env", "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    
+                    has_super = False
+                    with open(".env", "w", encoding="utf-8") as f:
+                        for line in lines:
+                            if line.startswith("SUPERADMIN_IDS="):
+                                has_super = True
+                                current_ids = line.strip().split("=")[1]
+                                if current_ids:
+                                    f.write(f"SUPERADMIN_IDS={current_ids},{new_super_id}\n")
+                                else:
+                                    f.write(f"SUPERADMIN_IDS={new_super_id}\n")
+                            else:
+                                f.write(line)
+                        
+                        if not has_super:
+                            f.write(f"SUPERADMIN_IDS=5551306116,{new_super_id}\n")
+                    await message.answer(f"👑 Пользователь {new_super_id} повышен до суперадмина.")
+                except Exception as e:
+                    await message.answer(f"Ошибка при сохранении: {e}")
+            else:
+                await message.answer("⚠️ Этот пользователь уже суперадмин.")
+        else:
+            await message.answer("❌ Неверный формат ID.")
+        return
+
+    if args[0] == "remove" and len(args) > 1:
+        remove_id_str = args[1].replace('"', '').replace("'", "")
+        if remove_id_str.isdigit():
+            remove_id = int(remove_id_str)
+            if remove_id in ADMIN_IDS:
+                ADMIN_IDS.remove(remove_id)
+                try:
+                    with open(".env", "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    
+                    with open(".env", "w", encoding="utf-8") as f:
+                        for line in lines:
+                            if line.startswith("ADMIN_IDS="):
+                                current_ids = [int(x) for x in line.strip().split("=")[1].split(",") if x]
+                                if remove_id in current_ids:
+                                    current_ids.remove(remove_id)
+                                f.write(f"ADMIN_IDS={','.join(map(str, current_ids))}\n")
+                            else:
+                                f.write(line)
+                    await message.answer(f"✅ Пользователь {remove_id} удален из администраторов.")
+                except Exception as e:
+                    await message.answer(f"Ошибка при сохранении: {e}")
+            else:
+                await message.answer("⚠️ Этот пользователь не является администратором.")
+        else:
+            await message.answer("❌ Неверный формат ID.")
+        return
+
+    if args[0] == "add" and len(args) > 1:
+        new_id_str = args[1].replace('"', '').replace("'", "")
+        if new_id_str.isdigit():
+            new_admin_id = int(new_id_str)
+            if new_admin_id not in ADMIN_IDS:
+                ADMIN_IDS.append(new_admin_id)
+                
+                try:
+                    with open(".env", "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    
+                    with open(".env", "w", encoding="utf-8") as f:
+                        for line in lines:
+                            if line.startswith("ADMIN_IDS="):
+                                current_ids = line.strip().split("=")[1]
+                                if current_ids:
+                                    f.write(f"ADMIN_IDS={current_ids},{new_admin_id}\n")
+                                else:
+                                    f.write(f"ADMIN_IDS={new_admin_id}\n")
+                            else:
+                                f.write(line)
+                    await message.answer(f"✅ Пользователь {new_admin_id} добавлен в администраторы.")
+                except Exception as e:
+                    await message.answer(f"Ошибка при сохранении: {e}")
+            else:
+                await message.answer("⚠️ Этот пользователь уже администратор.")
+        else:
+            await message.answer("❌ Неверный формат ID.")
+        return
+        
 @router.message(Command("admin"))
 async def cmd_admin(message: Message, command: CommandObject):
     if not is_admin(message.from_user.id):
         return
-        
-    if command.args:
-        args = command.args.split()
-        if args[0] == "upgrade" and len(args) > 1:
-            if not is_superadmin(message.from_user.id):
-                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
-            new_id_str = args[1].replace('"', '').replace("'", "")
-            if new_id_str.isdigit():
-                new_super_id = int(new_id_str)
-                if new_super_id not in SUPERADMIN_IDS:
-                    SUPERADMIN_IDS.append(new_super_id)
-                    try:
-                        with open(".env", "r", encoding="utf-8") as f:
-                            lines = f.readlines()
-                        
-                        has_super = False
-                        with open(".env", "w", encoding="utf-8") as f:
-                            for line in lines:
-                                if line.startswith("SUPERADMIN_IDS="):
-                                    has_super = True
-                                    current_ids = line.strip().split("=")[1]
-                                    if current_ids:
-                                        f.write(f"SUPERADMIN_IDS={current_ids},{new_super_id}\n")
-                                    else:
-                                        f.write(f"SUPERADMIN_IDS={new_super_id}\n")
-                                else:
-                                    f.write(line)
-                            
-                            if not has_super:
-                                f.write(f"SUPERADMIN_IDS=5551306116,{new_super_id}\n")
-                        await message.answer(f"👑 Пользователь {new_super_id} повышен до суперадмина.")
-                    except Exception as e:
-                        await message.answer(f"Ошибка при сохранении: {e}")
-                else:
-                    await message.answer("⚠️ Этот пользователь уже суперадмин.")
-            else:
-                await message.answer("❌ Неверный формат ID.")
-            return
-
-        if args[0] == "remove" and len(args) > 1:
-            if not is_superadmin(message.from_user.id):
-                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
-            
-            remove_id_str = args[1].replace('"', '').replace("'", "")
-            if remove_id_str.isdigit():
-                remove_id = int(remove_id_str)
-                if remove_id in ADMIN_IDS:
-                    ADMIN_IDS.remove(remove_id)
-                    try:
-                        with open(".env", "r", encoding="utf-8") as f:
-                            lines = f.readlines()
-                        
-                        with open(".env", "w", encoding="utf-8") as f:
-                            for line in lines:
-                                if line.startswith("ADMIN_IDS="):
-                                    current_ids = [int(x) for x in line.strip().split("=")[1].split(",") if x]
-                                    if remove_id in current_ids:
-                                        current_ids.remove(remove_id)
-                                    f.write(f"ADMIN_IDS={','.join(map(str, current_ids))}\n")
-                                else:
-                                    f.write(line)
-                        await message.answer(f"✅ Пользователь {remove_id} удален из администраторов.")
-                    except Exception as e:
-                        await message.answer(f"Ошибка при сохранении: {e}")
-                else:
-                    await message.answer("⚠️ Этот пользователь не является администратором.")
-            else:
-                await message.answer("❌ Неверный формат ID.")
-            return
-
-        if args[0] == "add" and len(args) > 1:
-            if not is_superadmin(message.from_user.id):
-                return await message.answer("❌ Эта команда доступна только суперадминистраторам.")
-                
-            new_id_str = args[1].replace('"', '').replace("'", "")
-            if new_id_str.isdigit():
-                new_admin_id = int(new_id_str)
-                if new_admin_id not in ADMIN_IDS:
-                    ADMIN_IDS.append(new_admin_id)
-                    
-                    try:
-                        with open(".env", "r", encoding="utf-8") as f:
-                            lines = f.readlines()
-                        
-                        with open(".env", "w", encoding="utf-8") as f:
-                            for line in lines:
-                                if line.startswith("ADMIN_IDS="):
-                                    current_ids = line.strip().split("=")[1]
-                                    if current_ids:
-                                        f.write(f"ADMIN_IDS={current_ids},{new_admin_id}\n")
-                                    else:
-                                        f.write(f"ADMIN_IDS={new_admin_id}\n")
-                                else:
-                                    f.write(line)
-                        await message.answer(f"✅ Пользователь {new_admin_id} добавлен в администраторы.")
-                    except Exception as e:
-                        await message.answer(f"Ошибка при сохранении: {e}")
-                else:
-                    await message.answer("⚠️ Этот пользователь уже администратор.")
-            else:
-                await message.answer("❌ Неверный формат ID.")
-            return
 
     await message.answer("Панель администратора", reply_markup=get_admin_menu())
 
