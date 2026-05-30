@@ -4,7 +4,8 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from states.fsm import SearchStates
 from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched
-from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard
+from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard
+from datetime import datetime
 
 router = Router()
 
@@ -78,6 +79,18 @@ async def process_favorite(callback: CallbackQuery, session: AsyncSession):
 @router.callback_query(F.data.startswith("watch_"))
 async def process_watch(callback: CallbackQuery, session: AsyncSession):
     anime_id = int(callback.data.split("_")[1])
+    
+    anime = await get_anime(session, anime_id)
+    if anime and getattr(anime, 'is_4k', False):
+        user = await get_user(session, callback.from_user.id)
+        now = datetime.utcnow()
+        if not user or not user.is_premium or (user.premium_until and user.premium_until < now):
+            return await callback.message.answer(
+                "🚫 <b>Доступ запрещен!</b>\n\nЭтот тайтл загружен в 4К качестве и доступен только пользователям с Premium подпиской.",
+                reply_markup=get_payment_keyboard(),
+                parse_mode="HTML"
+            )
+
     episodes = await get_episodes(session, anime_id)
     
     if not episodes:
