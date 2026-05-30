@@ -224,7 +224,7 @@ async def admin_list_anime(message: Message, session: AsyncSession):
     
     await message.answer(text, parse_mode="HTML")
 
-@router.message(F.text == "Список пользователей")
+@router.message(F.text == "👥 Список пользователей")
 async def admin_list_users(message: Message, session: AsyncSession):
     if not is_admin(message.from_user.id): return
     users = await get_all_users(session)
