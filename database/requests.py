@@ -1,6 +1,6 @@
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import User, Anime, Episode, Favorite, History, Folder, FolderItem
+from database.models import User, Anime, Episode, Favorite, History, Folder, FolderItem, WatchedEpisode
 from datetime import datetime
 
 async def get_user(session: AsyncSession, telegram_id: int):
@@ -51,6 +51,7 @@ async def delete_anime(session: AsyncSession, anime_id: int):
         await session.execute(delete(Episode).where(Episode.anime_id == anime_id))
         await session.execute(delete(Favorite).where(Favorite.anime_id == anime_id))
         await session.execute(delete(History).where(History.anime_id == anime_id))
+        await session.execute(delete(WatchedEpisode).where(WatchedEpisode.anime_id == anime_id))
         await session.delete(anime)
         await session.commit()
         return True
@@ -143,6 +144,28 @@ async def update_history(session: AsyncSession, user_id: int, anime_id: int, epi
         hist = History(user_id=user_id, anime_id=anime_id, last_episode_number=episode_number)
         session.add(hist)
     await session.commit()
+
+async def mark_episode_watched(session: AsyncSession, user_id: int, anime_id: int, episode_number: int):
+    result = await session.execute(
+        select(WatchedEpisode).where(
+            WatchedEpisode.user_id == user_id,
+            WatchedEpisode.anime_id == anime_id,
+            WatchedEpisode.episode_number == episode_number
+        )
+    )
+    if not result.scalar_one_or_none():
+        watched = WatchedEpisode(user_id=user_id, anime_id=anime_id, episode_number=episode_number)
+        session.add(watched)
+        await session.commit()
+
+async def get_watched_episodes(session: AsyncSession, user_id: int, anime_id: int):
+    result = await session.execute(
+        select(WatchedEpisode.episode_number).where(
+            WatchedEpisode.user_id == user_id,
+            WatchedEpisode.anime_id == anime_id
+        )
+    )
+    return result.scalars().all()
 
 async def get_history(session: AsyncSession, user_id: int, limit: int = 5):
     result = await session.execute(

@@ -25,11 +25,12 @@ def get_catalog_keyboard(items: list):
     builder.adjust(1) # По 1 кнопке в ряд (списком)
     return builder.as_markup()
 
-def get_episodes_keyboard(anime_id: int, episodes: list, user_history_episode: int = None):
+def get_episodes_keyboard(anime_id: int, episodes: list, watched_episodes: list = None):
     builder = InlineKeyboardBuilder()
+    watched_set = set(watched_episodes) if watched_episodes else set()
     for ep in episodes:
         text = str(ep.episode_number)
-        if user_history_episode and ep.episode_number <= user_history_episode:
+        if ep.episode_number in watched_set:
             text = f"{text} ✅"
         builder.button(text=text, callback_data=f"ep_{anime_id}_{ep.episode_number}")
     builder.adjust(5) # По 5 кнопок в ряд

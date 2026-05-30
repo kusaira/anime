@@ -16,6 +16,20 @@ def main():
             else:
                 print(f"❌ Ошибка SQL: {e}")
                 
+        print("Создаем таблицу watched_episodes...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS watched_episodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                anime_id INTEGER NOT NULL,
+                episode_number INTEGER NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(anime_id) REFERENCES anime(id) ON DELETE CASCADE
+            );
+        """)
+        conn.commit()
+        print("✅ Таблица watched_episodes готова!")
+                
     except Exception as e:
         print(f"❌ Ошибка подключения: {e}")
     finally:

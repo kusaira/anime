@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from states.fsm import SearchStates
-from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user
+from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched
 from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard
 
 router = Router()
@@ -84,12 +84,11 @@ async def process_watch(callback: CallbackQuery, session: AsyncSession):
         return await callback.answer("Серии еще не добавлены.", show_alert=True)
     
     user = await get_user(session, callback.from_user.id)
-    history = await get_user_history_for_anime(session, user.id, anime_id)
-    last_ep = history.last_episode_number if history else None
+    watched_eps = await get_watched_episodes(session, user.id, anime_id)
     
     await callback.message.answer(
         "Выберите серию:",
-        reply_markup=get_episodes_keyboard(anime_id, episodes, last_ep)
+        reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
     )
     await callback.answer()
 
@@ -105,16 +104,17 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession):
     
     await callback.message.answer_video(video=episode.tg_file_id, caption=f"Серия {ep_num}")
     
-    # Обновляем историю
+    # Обновляем историю и отмечаем серию как просмотренную
     user = await get_user(session, callback.from_user.id)
     await update_history(session, user.id, anime_id, ep_num)
+    await mark_episode_watched(session, user.id, anime_id, ep_num)
     
     # Обновляем клавиатуру, чтобы галочка появилась сразу
-    history = await get_user_history_for_anime(session, user.id, anime_id)
+    watched_eps = await get_watched_episodes(session, user.id, anime_id)
     episodes = await get_episodes(session, anime_id)
     try:
         await callback.message.edit_reply_markup(
-            reply_markup=get_episodes_keyboard(anime_id, episodes, history.last_episode_number)
+            reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
         )
     except Exception:
         pass # Игнорируем, если клавиатура не изменилась (например, кликнули ту же серию)

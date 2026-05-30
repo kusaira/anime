@@ -54,3 +54,10 @@ class FolderItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     folder_id: Mapped[int] = mapped_column(ForeignKey('folders.id', ondelete='CASCADE'))
     anime_id: Mapped[int] = mapped_column(ForeignKey('anime.id', ondelete='CASCADE'))
+
+class WatchedEpisode(Base):
+    __tablename__ = 'watched_episodes'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'))
+    anime_id: Mapped[int] = mapped_column(ForeignKey('anime.id', ondelete='CASCADE'))
+    episode_number: Mapped[int] = mapped_column(Integer)
