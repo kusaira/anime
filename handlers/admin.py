@@ -69,12 +69,20 @@ async def cmd_ad(message: Message, command: CommandObject, session: AsyncSession
     await message.answer(f"✅ Рассылка завершена. Доставлено {count} пользователям.")
 
 @router.message(Command("superadmin"))
-async def cmd_superadmin(message: Message, command: CommandObject):
+async def cmd_superadmin(message: Message, command: CommandObject, session: AsyncSession):
     if not is_superadmin(message.from_user.id):
         return
         
     if not command.args:
-        return await message.answer("Использование:\n/superadmin add [ID]\n/superadmin remove [ID]\n/superadmin upgrade [ID]")
+        help_text = (
+            "Использование:\n"
+            "/superadmin add [ID]\n"
+            "/superadmin remove [ID]\n"
+            "/superadmin upgrade [ID]\n"
+            "/superadmin premium gift [дни] [@username]\n"
+            "/superadmin premium del [@username]"
+        )
+        return await message.answer(help_text)
         
     args = command.args.split()
     
@@ -168,6 +176,58 @@ async def cmd_superadmin(message: Message, command: CommandObject):
                 await message.answer("⚠️ Этот пользователь уже администратор.")
         else:
             await message.answer("❌ Неверный формат ID.")
+        return
+
+    if args[0] == "premium" and len(args) > 1:
+        from database.requests import get_user_by_username
+        from datetime import datetime, timedelta
+        
+        action = args[1]
+        
+        if action == "gift" and len(args) == 4:
+            days = args[2]
+            target_username = args[3].replace("@", "")
+            if days.isdigit():
+                target_user = await get_user_by_username(session, target_username)
+                if target_user:
+                    now = datetime.utcnow()
+                    if target_user.is_premium and target_user.premium_until and target_user.premium_until > now:
+                        new_until = target_user.premium_until + timedelta(days=int(days))
+                    else:
+                        new_until = now + timedelta(days=int(days))
+                    
+                    target_user.is_premium = True
+                    target_user.premium_until = new_until
+                    await session.commit()
+                    
+                    await message.answer(f"✅ Пользователю {target_username} выдана подписка на {days} дней!")
+                    try:
+                        await message.bot.send_message(
+                            target_user.telegram_id, 
+                            f"🎉 <b>Вам подарили премиум подписку!</b>\n\nДлительность: <b>{days} дней</b>.\nНаслаждайтесь просмотром!", 
+                            parse_mode="HTML"
+                        )
+                    except:
+                        pass
+                else:
+                    await message.answer("❌ Пользователь с таким юзернеймом не найден в базе.")
+            else:
+                await message.answer("❌ Количество дней должно быть числом.")
+            return
+            
+        elif action == "del" and len(args) == 3:
+            target_username = args[2].replace("@", "")
+            target_user = await get_user_by_username(session, target_username)
+            if target_user:
+                target_user.is_premium = False
+                target_user.premium_until = None
+                await session.commit()
+                await message.answer(f"✅ У пользователя {target_username} успешно аннулирована подписка.")
+            else:
+                await message.answer("❌ Пользователь с таким юзернеймом не найден в базе.")
+            return
+            
+        await message.answer("❌ Неверный формат команды. Используйте /superadmin premium gift или /superadmin premium del")
         return
         
 @router.message(Command("admin"))

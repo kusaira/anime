@@ -9,7 +9,7 @@ from database.requests import get_user, create_user, get_favorites, get_history,
 from keyboards.reply import get_main_menu
 from keyboards.inline import get_payment_keyboard, get_catalog_keyboard, get_anime_keyboard, get_history_keyboard
 from datetime import datetime, timedelta
-from config import ADMIN_IDS
+from config import ADMIN_IDS, SUPERADMIN_IDS
 
 router = Router()
 
@@ -31,58 +31,6 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext):
 @router.message(F.text == "💎 Подписка")
 async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext, command: CommandObject = None):
     user = await get_user(session, message.from_user.id)
-    
-    # Обработка /premium gift и /premium del для админов
-    if command and command.args and message.from_user.id in ADMIN_IDS:
-        if command.args.startswith("gift"):
-            args = command.args.split()
-            if len(args) == 3:
-                days = args[1]
-                target_username = args[2]
-                if days.isdigit():
-                    target_user = await get_user_by_username(session, target_username)
-                    if target_user:
-                        now = datetime.utcnow()
-                        if target_user.is_premium and target_user.premium_until and target_user.premium_until > now:
-                            new_until = target_user.premium_until + timedelta(days=int(days))
-                        else:
-                            new_until = now + timedelta(days=int(days))
-                        
-                        target_user.is_premium = True
-                        target_user.premium_until = new_until
-                        await session.commit()
-                        
-                        await message.answer(f"✅ Пользователю {target_username} выдана подписка на {days} дней!")
-                        try:
-                            await message.bot.send_message(
-                                target_user.telegram_id, 
-                                f"🎉 <b>Вам подарили премиум подписку!</b>\n\nДлительность: <b>{days} дней</b>.\nНаслаждайтесь просмотром!", 
-                                parse_mode="HTML"
-                            )
-                        except:
-                            pass
-                    else:
-                        await message.answer("❌ Пользователь с таким юзернеймом не найден в базе.")
-                else:
-                    await message.answer("❌ Количество дней должно быть числом.")
-            else:
-                await message.answer("❌ Формат: /premium gift [дни] [@username]")
-            return
-        elif command.args.startswith("del"):
-            args = command.args.split()
-            if len(args) == 2:
-                target_username = args[1]
-                target_user = await get_user_by_username(session, target_username)
-                if target_user:
-                    target_user.is_premium = False
-                    target_user.premium_until = None
-                    await session.commit()
-                    await message.answer(f"✅ У пользователя {target_username} успешно аннулирована подписка.")
-                else:
-                    await message.answer("❌ Пользователь с таким юзернеймом не найден в базе.")
-            else:
-                await message.answer("❌ Формат: /premium del [@username]")
-            return
 
     # Логика для обычных юзеров
     if user and user.is_premium and user.premium_until:
