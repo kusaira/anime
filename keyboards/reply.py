@@ -22,6 +22,7 @@ def get_admin_menu():
             [KeyboardButton(text="Добавить аниме"), KeyboardButton(text="Удалить аниме")],
             [KeyboardButton(text="Редактировать аниме")],
             [KeyboardButton(text="Добавить серию"), KeyboardButton(text="Удалить серию")],
+            [KeyboardButton(text="Масс. загрузка серий")],
             [KeyboardButton(text="Список залитого аниме"), KeyboardButton(text="Список серий аниме")],
             [KeyboardButton(text="Список пользователей"), KeyboardButton(text="🔙 В главное меню")]
         ],
@@ -33,6 +34,15 @@ def get_cancel_menu():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="❌ Отмена")]
+        ],
+        resize_keyboard=True
+    )
+    return keyboard
+
+def get_finish_upload_menu():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="❌ Завершить загрузку")]
         ],
         resize_keyboard=True
     )

@@ -7,9 +7,9 @@ import asyncio
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime
-from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard
+from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu
 
 router = Router()
 
@@ -466,6 +466,77 @@ async def del_episode_process(message: Message, state: FSMContext, session: Asyn
         await message.answer("❌ Ни одна серия не была найдена.", reply_markup=get_admin_menu())
         
     await state.clear()
+
+# --- Массовая загрузка серий ---
+import re
+
+@router.message(F.text == "Масс. загрузка серий")
+async def mass_upload_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    
+    animes = await get_all_anime(session)
+    text = "Выберите ID аниме для массовой загрузки серий:\n\n"
+    for a in animes:
+        text += f"{a.id}. {a.title}\n"
+    await message.answer(text, reply_markup=get_cancel_menu())
+    await state.set_state(AdminMassUpload.waiting_for_anime_id)
+
+@router.message(AdminMassUpload.waiting_for_anime_id)
+async def mass_upload_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("Пожалуйста, отправьте числовой ID.")
+    anime_id = int(message.text)
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        return await message.answer("Аниме с таким ID не найдено. Попробуйте еще раз.")
+    
+    await state.update_data(anime_id=anime_id)
+    
+    msg_text = (
+        f"✅ Выбрано аниме: <b>{anime.title}</b>\n\n"
+        "Теперь отправляйте видеофайлы или альбомы видео. "
+        "Бот автоматически извлечет номер серии из названия файла "
+        "(например: <code>1.mp4</code> или <code>серия 2.mp4</code>).\n\n"
+        "Обязательно отправляйте видео <b>с компьютера</b> или <b>как файл (без сжатия)</b>, "
+        "чтобы Telegram не переименовал их."
+    )
+    await message.answer(msg_text, reply_markup=get_finish_upload_menu(), parse_mode="HTML")
+    await state.set_state(AdminMassUpload.waiting_for_videos)
+
+@router.message(F.text == "❌ Завершить загрузку", StateFilter(AdminMassUpload.waiting_for_videos))
+async def mass_upload_finish(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("✅ Массовая загрузка завершена.", reply_markup=get_admin_menu())
+
+@router.message(StateFilter(AdminMassUpload.waiting_for_videos), F.video | F.document)
+async def mass_upload_process_video(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    data = await state.get_data()
+    anime_id = data.get('anime_id')
+    
+    # Получаем имя файла и ID файла
+    if message.video:
+        file_name = message.video.file_name
+        file_id = message.video.file_id
+    elif message.document:
+        file_name = message.document.file_name
+        file_id = message.document.file_id
+    else:
+        return
+        
+    if not file_name:
+        return await message.answer("❌ У этого файла нет названия, не могу определить серию.")
+        
+    # Ищем число в названии файла
+    numbers = re.findall(r'\d+', file_name)
+    if not numbers:
+        return await message.answer(f"❌ Не нашел цифру в названии файла: <code>{file_name}</code>", parse_mode="HTML")
+        
+    # Берем первое число из названия как номер серии
+    ep_num = int(numbers[0])
+    
+    await add_episode(session, anime_id, ep_num, file_id)
+    await message.answer(f"✅ Серия <b>{ep_num}</b> успешно добавлена (файл: {file_name})", parse_mode="HTML", disable_notification=True)
+    await send_admin_log(bot, f"Админ {message.from_user.id} массово загрузил серию {ep_num} для аниме {anime_id} ({file_name})")
 
 # --- Создание папки ---
 @router.message(F.text == "Создать папку")
