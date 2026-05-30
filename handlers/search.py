@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from states.fsm import SearchStates
 from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched
-from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard
+from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard, get_video_navigation_keyboard
 from datetime import datetime
 from handlers.helpers import delete_previous_menu, save_menu_msg, delete_previous_video, save_video_msg
 
@@ -136,20 +136,12 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     await update_history(session, user.id, anime_id, ep_num)
     await mark_episode_watched(session, user.id, anime_id, ep_num)
     
-    # Обновляем клавиатуру, чтобы галочка появилась сразу
-    watched_eps = await get_watched_episodes(session, user.id, anime_id)
     episodes = await get_episodes(session, anime_id)
-    try:
-        await callback.message.edit_reply_markup(
-            reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
-        )
-    except Exception:
-        pass # Игнорируем, если клавиатура не изменилась (например, кликнули ту же серию)
         
-    # Отправляем клавиатуру заново под видео для удобства
+    # Отправляем клавиатуру навигации под видео для удобства
     menu_msg = await callback.message.answer(
-        "📺 Приятного просмотра! Выберите следующую серию:",
-        reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
+        "📺 Приятного просмотра! Выберите действие:",
+        reply_markup=get_video_navigation_keyboard(anime_id, ep_num, episodes)
     )
     await save_menu_msg(menu_msg.message_id, state)
         

@@ -36,6 +36,33 @@ def get_episodes_keyboard(anime_id: int, episodes: list, watched_episodes: list 
     builder.adjust(5) # По 5 кнопок в ряд
     return builder.as_markup()
 
+def get_video_navigation_keyboard(anime_id: int, current_ep: int, episodes: list):
+    builder = InlineKeyboardBuilder()
+    
+    episodes_sorted = sorted(episodes, key=lambda x: x.episode_number)
+    prev_ep = None
+    next_ep = None
+    
+    for i, ep in enumerate(episodes_sorted):
+        if ep.episode_number == current_ep:
+            if i > 0:
+                prev_ep = episodes_sorted[i-1].episode_number
+            if i < len(episodes_sorted) - 1:
+                next_ep = episodes_sorted[i+1].episode_number
+            break
+            
+    nav_buttons = []
+    if prev_ep is not None:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Прошлая серия", callback_data=f"ep_{anime_id}_{prev_ep}"))
+    if next_ep is not None:
+        nav_buttons.append(InlineKeyboardButton(text="След серия ➡️", callback_data=f"ep_{anime_id}_{next_ep}"))
+        
+    if nav_buttons:
+        builder.row(*nav_buttons)
+        
+    builder.row(InlineKeyboardButton(text="📋 Список серий", callback_data=f"watch_{anime_id}"))
+    return builder.as_markup()
+
 def get_history_keyboard(history_list: list):
     builder = InlineKeyboardBuilder()
     for history_entry, anime in history_list:
