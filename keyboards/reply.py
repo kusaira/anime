@@ -41,6 +41,7 @@ def get_admin_episodes_menu():
         keyboard=[
             [KeyboardButton(text="Добавить серию"), KeyboardButton(text="Редактировать серию")],
             [KeyboardButton(text="Удалить серию"), KeyboardButton(text="Список серий аниме")],
+            [KeyboardButton(text="Редактировать озвучку"), KeyboardButton(text="Удалить озвучку")],
             [KeyboardButton(text="Масс. загрузка серий")],
             [KeyboardButton(text="↩️ Назад в админку")]
         ],

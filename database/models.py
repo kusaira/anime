@@ -21,6 +21,12 @@ class Anime(Base):
     photo_file_id: Mapped[str] = mapped_column(String)
     is_4k: Mapped[bool] = mapped_column(Boolean, default=False)
 
+class Voiceover(Base):
+    __tablename__ = 'voiceovers'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    anime_id: Mapped[int] = mapped_column(ForeignKey('anime.id', ondelete='CASCADE'))
+    name: Mapped[str] = mapped_column(String)
+
 class Episode(Base):
     __tablename__ = 'episodes'
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -28,6 +34,7 @@ class Episode(Base):
     episode_number: Mapped[int] = mapped_column(Integer)
     tg_file_id: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(String, nullable=True)
+    voiceover_id: Mapped[int] = mapped_column(ForeignKey('voiceovers.id', ondelete='CASCADE'), nullable=True)
 
 class Favorite(Base):
     __tablename__ = 'favorites'

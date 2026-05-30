@@ -106,29 +106,49 @@ async def process_watch(callback: CallbackQuery, session: AsyncSession, state: F
                 parse_mode="HTML"
             )
 
-    episodes = await get_episodes(session, anime_id)
+    from database.requests import get_voiceovers
+    voiceovers = await get_voiceovers(session, anime_id)
     
+    if not voiceovers:
+        return await callback.answer("Озвучки или серии еще не добавлены.", show_alert=True)
+        
+    await delete_previous_menu(callback, state)
+    msg = await callback.message.answer(
+        "Выберите озвучку:",
+        reply_markup=get_voiceovers_keyboard(anime_id, voiceovers)
+    )
+    await save_menu_msg(msg.message_id, state)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("vo_"))
+async def process_voiceover(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
+    _, anime_id, voiceover_id = callback.data.split("_")
+    anime_id = int(anime_id)
+    voiceover_id = int(voiceover_id)
+    
+    episodes = await get_episodes(session, anime_id, voiceover_id)
     if not episodes:
-        return await callback.answer("Серии еще не добавлены.", show_alert=True)
-    
+        return await callback.answer("Серии для этой озвучки не найдены.", show_alert=True)
+        
     user = await get_user(session, callback.from_user.id)
     watched_eps = await get_watched_episodes(session, user.id, anime_id)
     
     await delete_previous_menu(callback, state)
     msg = await callback.message.answer(
         "Выберите серию:",
-        reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
+        reply_markup=get_episodes_keyboard(anime_id, voiceover_id, episodes, watched_eps)
     )
     await save_menu_msg(msg.message_id, state)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("ep_"))
 async def process_episode(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
-    _, anime_id, ep_num = callback.data.split("_")
+    _, anime_id, voiceover_id, ep_num = callback.data.split("_")
     anime_id = int(anime_id)
+    voiceover_id = int(voiceover_id)
     ep_num = int(ep_num)
     
-    episode = await get_episode(session, anime_id, ep_num)
+    episode = await get_episode(session, anime_id, ep_num, voiceover_id)
     if not episode:
         return await callback.answer("Ошибка: серия не найдена.", show_alert=True)
     
@@ -148,12 +168,12 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     await update_history(session, user.id, anime_id, ep_num)
     await mark_episode_watched(session, user.id, anime_id, ep_num)
     
-    episodes = await get_episodes(session, anime_id)
+    episodes = await get_episodes(session, anime_id, voiceover_id)
         
     # Отправляем клавиатуру навигации под видео для удобства
     menu_msg = await callback.message.answer(
         "📺 Приятного просмотра! Выберите действие:",
-        reply_markup=get_video_navigation_keyboard(anime_id, ep_num, episodes)
+        reply_markup=get_video_navigation_keyboard(anime_id, voiceover_id, ep_num, episodes)
     )
     await save_menu_msg(menu_msg.message_id, state)
         

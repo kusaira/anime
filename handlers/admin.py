@@ -352,17 +352,26 @@ async def add_episode_num(message: Message, state: FSMContext):
 @router.message(AdminAddEpisode.waiting_for_episode_description)
 async def add_episode_desc(message: Message, state: FSMContext):
     await state.update_data(episode_description=message.text)
+    await message.answer("Отправьте название озвучки (или отправьте тире '-', чтобы использовать 'Оригинал'):")
+    await state.set_state(AdminAddEpisode.waiting_for_voiceover_name)
+
+@router.message(AdminAddEpisode.waiting_for_voiceover_name)
+async def add_episode_voiceover(message: Message, state: FSMContext):
+    await state.update_data(voiceover_name=message.text)
     await message.answer("Отправьте или перешлите видео-файл серии:")
     await state.set_state(AdminAddEpisode.waiting_for_video)
 
 @router.message(AdminAddEpisode.waiting_for_video, F.video)
 async def add_episode_video(message: Message, state: FSMContext, session: AsyncSession):
+    from database.requests import get_or_create_voiceover
     data = await state.get_data()
     video_file_id = message.video.file_id
     
-    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id, data['episode_description'])
-    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} для аниме ID {data['anime_id']}")
-    await message.answer(f"Серия {data['episode_number']} успешно добавлена!", reply_markup=get_admin_menu())
+    vo = await get_or_create_voiceover(session, data['anime_id'], data['voiceover_name'])
+    
+    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id, data['episode_description'], vo.id)
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} ({vo.name}) для аниме ID {data['anime_id']}")
+    await message.answer(f"Серия {data['episode_number']} (Озвучка: {vo.name}) успешно добавлена!", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Редактирование серии ---
@@ -593,6 +602,92 @@ async def del_episode_process(message: Message, state: FSMContext, session: Asyn
         
     await state.clear()
 
+# --- Редактирование озвучки ---
+@router.message(F.text == "Редактировать озвучку")
+async def edit_voiceover_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
+    await state.set_state(AdminEditVoiceover.waiting_for_anime_id)
+
+@router.message(AdminEditVoiceover.waiting_for_anime_id)
+async def edit_voiceover_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    anime_id = int(message.text)
+    from database.requests import get_voiceovers
+    voiceovers = await get_voiceovers(session, anime_id)
+    if not voiceovers:
+        return await message.answer("У этого аниме нет озвучек.", reply_markup=get_admin_menu())
+        
+    await state.update_data(anime_id=anime_id)
+    text = "Выберите ID озвучки для переименования:\n\n"
+    for vo in voiceovers:
+        text += f"ID: {vo.id} - {vo.name}\n"
+    await message.answer(text)
+    await state.set_state(AdminEditVoiceover.waiting_for_voiceover_id)
+
+@router.message(AdminEditVoiceover.waiting_for_voiceover_id)
+async def edit_voiceover_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    from database.requests import get_voiceover
+    vo = await get_voiceover(session, int(message.text))
+    if not vo:
+        return await message.answer("Озвучка не найдена.")
+        
+    await state.update_data(voiceover_id=vo.id)
+    await message.answer(f"Текущее название: {vo.name}\nОтправьте новое название:")
+    await state.set_state(AdminEditVoiceover.waiting_for_new_name)
+
+@router.message(AdminEditVoiceover.waiting_for_new_name)
+async def edit_voiceover_new_name(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    from database.requests import get_voiceover
+    vo = await get_voiceover(session, data['voiceover_id'])
+    old_name = vo.name
+    vo.name = message.text
+    await session.commit()
+    
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> переименовал озвучку {data['voiceover_id']} ({old_name} -> {vo.name})")
+    await message.answer(f"✅ Название озвучки изменено на {vo.name}", reply_markup=get_admin_menu())
+    await state.clear()
+
+# --- Удаление озвучки ---
+@router.message(F.text == "Удалить озвучку")
+async def delete_voiceover_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
+    await state.set_state(AdminDeleteVoiceover.waiting_for_anime_id)
+
+@router.message(AdminDeleteVoiceover.waiting_for_anime_id)
+async def delete_voiceover_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    anime_id = int(message.text)
+    from database.requests import get_voiceovers
+    voiceovers = await get_voiceovers(session, anime_id)
+    if not voiceovers:
+        return await message.answer("У этого аниме нет озвучек.", reply_markup=get_admin_menu())
+        
+    text = "Выберите ID озвучки для УДАЛЕНИЯ (вместе со всеми её сериями!):\n\n"
+    for vo in voiceovers:
+        text += f"ID: {vo.id} - {vo.name}\n"
+    await message.answer(text)
+    await state.set_state(AdminDeleteVoiceover.waiting_for_voiceover_id)
+
+@router.message(AdminDeleteVoiceover.waiting_for_voiceover_id)
+async def delete_voiceover_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    from database.requests import delete_voiceover
+    success = await delete_voiceover(session, int(message.text))
+    if success:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил озвучку {message.text}")
+        await message.answer("✅ Озвучка и все её серии успешно удалены.", reply_markup=get_admin_menu())
+    else:
+        await message.answer("❌ Озвучка не найдена.", reply_markup=get_admin_menu())
+    await state.clear()
+
 # --- Массовая загрузка серий ---
 import re
 
@@ -618,8 +713,22 @@ async def mass_upload_anime_id(message: Message, state: FSMContext, session: Asy
     
     await state.update_data(anime_id=anime_id)
     
+    await message.answer("Введите название озвучки (или '-' для 'Оригинал'):", reply_markup=get_cancel_menu())
+    await state.set_state(AdminMassUpload.waiting_for_voiceover_name)
+
+@router.message(AdminMassUpload.waiting_for_voiceover_name)
+async def mass_upload_voiceover(message: Message, state: FSMContext, session: AsyncSession):
+    from database.requests import get_or_create_voiceover
+    data = await state.get_data()
+    
+    vo = await get_or_create_voiceover(session, data['anime_id'], message.text)
+    await state.update_data(voiceover_id=vo.id, voiceover_name=vo.name)
+    
+    anime = await get_anime(session, data['anime_id'])
+    
     msg_text = (
-        f"✅ Выбрано аниме: <b>{anime.title}</b>\n\n"
+        f"✅ Выбрано аниме: <b>{anime.title}</b>\n"
+        f"🎙 Озвучка: <b>{vo.name}</b>\n\n"
         "Теперь отправляйте видеофайлы или альбомы видео. "
         "Бот автоматически извлечет номер серии из названия файла "
         "(например: <code>1.mp4</code> или <code>серия 2.mp4</code>).\n\n"
@@ -660,9 +769,9 @@ async def mass_upload_process_video(message: Message, state: FSMContext, session
     # Берем первое число из названия как номер серии
     ep_num = int(numbers[0])
     
-    await add_episode(session, anime_id, ep_num, file_id)
-    await message.answer(f"✅ Серия <b>{ep_num}</b> успешно добавлена (файл: {file_name})", parse_mode="HTML", disable_notification=True)
-    await send_admin_log(bot, f"Админ {message.from_user.id} массово загрузил серию {ep_num} для аниме {anime_id} ({file_name})")
+    await add_episode(session, anime_id, ep_num, file_id, None, data['voiceover_id'])
+    await message.answer(f"✅ Серия <b>{ep_num}</b> ({data['voiceover_name']}) успешно добавлена (файл: {file_name})", parse_mode="HTML", disable_notification=True)
+    await send_admin_log(bot, f"Админ {message.from_user.id} массово загрузил серию {ep_num} ({data['voiceover_name']}) для аниме {anime_id} ({file_name})")
 
 # --- Создание папки ---
 @router.message(F.text == "Создать папку")

@@ -1,6 +1,6 @@
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import User, Anime, Episode, Favorite, History, Folder, FolderItem, WatchedEpisode
+from database.models import User, Anime, Episode, Favorite, History, Folder, FolderItem, Voiceover, WatchedEpisode
 from datetime import datetime
 
 async def get_user(session: AsyncSession, telegram_id: int):
@@ -37,9 +37,47 @@ async def add_anime(session: AsyncSession, title: str, description: str, photo_f
     await session.refresh(anime)
     return anime
 
-async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str, description: str = None):
+async def get_or_create_voiceover(session: AsyncSession, anime_id: int, name: str):
+    name = name.strip() if name != "-" else "Оригинал"
     result = await session.execute(
-        select(Episode).where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
+        select(Voiceover).where(Voiceover.anime_id == anime_id, Voiceover.name == name)
+    )
+    vo = result.scalars().first()
+    if not vo:
+        vo = Voiceover(anime_id=anime_id, name=name)
+        session.add(vo)
+        await session.commit()
+        await session.refresh(vo)
+    return vo
+
+async def get_voiceovers(session: AsyncSession, anime_id: int):
+    result = await session.execute(select(Voiceover).where(Voiceover.anime_id == anime_id))
+    return result.scalars().all()
+
+async def get_voiceover(session: AsyncSession, voiceover_id: int):
+    result = await session.execute(select(Voiceover).where(Voiceover.id == voiceover_id))
+    return result.scalars().first()
+
+async def delete_voiceover(session: AsyncSession, voiceover_id: int):
+    vo = await get_voiceover(session, voiceover_id)
+    if vo:
+        await session.delete(vo)
+        await session.commit()
+        return True
+    return False
+
+async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str, description: str = None, voiceover_id: int = None):
+    # Если voiceover_id не передан, получаем "Оригинал"
+    if not voiceover_id:
+        vo = await get_or_create_voiceover(session, anime_id, "Оригинал")
+        voiceover_id = vo.id
+
+    result = await session.execute(
+        select(Episode).where(
+            Episode.anime_id == anime_id, 
+            Episode.episode_number == episode_number,
+            Episode.voiceover_id == voiceover_id
+        )
     )
     episode = result.scalars().first()
     
@@ -49,7 +87,13 @@ async def add_episode(session: AsyncSession, anime_id: int, episode_number: int,
             episode.description = description if description != "-" else None
     else:
         desc_val = description if description != "-" else None
-        episode = Episode(anime_id=anime_id, episode_number=episode_number, tg_file_id=tg_file_id, description=desc_val)
+        episode = Episode(
+            anime_id=anime_id, 
+            episode_number=episode_number, 
+            tg_file_id=tg_file_id, 
+            description=desc_val,
+            voiceover_id=voiceover_id
+        )
         session.add(episode)
         
     await session.commit()
@@ -106,15 +150,18 @@ async def get_all_anime(session: AsyncSession):
     result = await session.execute(select(Anime))
     return result.scalars().all()
 
-async def get_episodes(session: AsyncSession, anime_id: int):
-    result = await session.execute(select(Episode).where(Episode.anime_id == anime_id).order_by(Episode.episode_number))
+async def get_episodes(session: AsyncSession, anime_id: int, voiceover_id: int = None):
+    query = select(Episode).where(Episode.anime_id == anime_id)
+    if voiceover_id:
+        query = query.where(Episode.voiceover_id == voiceover_id)
+    result = await session.execute(query.order_by(Episode.episode_number))
     return result.scalars().all()
 
-async def get_episode(session: AsyncSession, anime_id: int, episode_number: int):
-    result = await session.execute(
-        select(Episode)
-        .where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
-    )
+async def get_episode(session: AsyncSession, anime_id: int, episode_number: int, voiceover_id: int = None):
+    query = select(Episode).where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
+    if voiceover_id:
+        query = query.where(Episode.voiceover_id == voiceover_id)
+    result = await session.execute(query)
     return result.scalars().first()
 
 async def get_episode_by_id(session: AsyncSession, episode_id: int):

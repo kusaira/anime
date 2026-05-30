@@ -18,6 +18,7 @@ class AdminAddEpisode(StatesGroup):
     waiting_for_anime_id = State()
     waiting_for_episode_number = State()
     waiting_for_episode_description = State()
+    waiting_for_voiceover_name = State()
     waiting_for_video = State()
 
 class AdminEditEpisode(StatesGroup):
@@ -33,6 +34,15 @@ class AdminDeleteAnime(StatesGroup):
 
 class AdminDeleteEpisode(StatesGroup):
     waiting_for_episode_id = State()
+
+class AdminEditVoiceover(StatesGroup):
+    waiting_for_anime_id = State()
+    waiting_for_voiceover_id = State()
+    waiting_for_new_name = State()
+
+class AdminDeleteVoiceover(StatesGroup):
+    waiting_for_anime_id = State()
+    waiting_for_voiceover_id = State()
 
 class AdminListEpisodes(StatesGroup):
     waiting_for_anime_id = State()

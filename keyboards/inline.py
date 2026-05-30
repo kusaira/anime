@@ -25,18 +25,28 @@ def get_catalog_keyboard(items: list):
     builder.adjust(1) # По 1 кнопке в ряд (списком)
     return builder.as_markup()
 
-def get_episodes_keyboard(anime_id: int, episodes: list, watched_episodes: list = None):
+def get_voiceovers_keyboard(anime_id: int, voiceovers: list):
+    builder = InlineKeyboardBuilder()
+    for vo in voiceovers:
+        builder.button(text=vo.name, callback_data=f"vo_{anime_id}_{vo.id}")
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_episodes_keyboard(anime_id: int, voiceover_id: int, episodes: list, watched_episodes: list = None):
     builder = InlineKeyboardBuilder()
     watched_set = set(watched_episodes) if watched_episodes else set()
     for ep in episodes:
         text = str(ep.episode_number)
         if ep.episode_number in watched_set:
             text = f"{text} ✅"
-        builder.button(text=text, callback_data=f"ep_{anime_id}_{ep.episode_number}")
+        builder.button(text=text, callback_data=f"ep_{anime_id}_{voiceover_id}_{ep.episode_number}")
     builder.adjust(5) # По 5 кнопок в ряд
+    
+    # Кнопка назад к озвучкам
+    builder.row(InlineKeyboardButton(text="⬅️ Назад к озвучкам", callback_data=f"anime_{anime_id}"))
     return builder.as_markup()
 
-def get_video_navigation_keyboard(anime_id: int, current_ep: int, episodes: list):
+def get_video_navigation_keyboard(anime_id: int, voiceover_id: int, current_ep: int, episodes: list):
     builder = InlineKeyboardBuilder()
     
     episodes_sorted = sorted(episodes, key=lambda x: x.episode_number)
@@ -53,14 +63,14 @@ def get_video_navigation_keyboard(anime_id: int, current_ep: int, episodes: list
             
     nav_buttons = []
     if prev_ep is not None:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Прошлая серия", callback_data=f"ep_{anime_id}_{prev_ep}"))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Прошлая серия", callback_data=f"ep_{anime_id}_{voiceover_id}_{prev_ep}"))
     if next_ep is not None:
-        nav_buttons.append(InlineKeyboardButton(text="След серия ➡️", callback_data=f"ep_{anime_id}_{next_ep}"))
+        nav_buttons.append(InlineKeyboardButton(text="След серия ➡️", callback_data=f"ep_{anime_id}_{voiceover_id}_{next_ep}"))
         
     if nav_buttons:
         builder.row(*nav_buttons)
         
-    builder.row(InlineKeyboardButton(text="📋 Список серий", callback_data=f"watch_{anime_id}"))
+    builder.row(InlineKeyboardButton(text="Список серий", callback_data=f"vo_{anime_id}_{voiceover_id}"))
     return builder.as_markup()
 
 def get_history_keyboard(history_list: list):
