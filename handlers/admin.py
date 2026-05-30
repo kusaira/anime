@@ -516,7 +516,12 @@ async def edit_episode_number(message: Message, state: FSMContext, session: Asyn
     ep_num = int(message.text)
     data = await state.get_data()
     
-    episode = await get_episode(session, data['anime_id'], ep_num, data['voiceover_id'])
+    vo_id = data.get('voiceover_id')
+    if not vo_id:
+        await message.answer("Сессия устарела. Начните заново из меню.", reply_markup=get_admin_menu())
+        return await state.clear()
+        
+    episode = await get_episode(session, data['anime_id'], ep_num, vo_id)
     if not episode:
         await message.answer(f"Серия {ep_num} у этого аниме не найдена.", reply_markup=get_admin_menu())
         return await state.clear()
@@ -539,9 +544,11 @@ async def edit_episode_field(message: Message, state: FSMContext):
 @router.message(AdminEditEpisode.waiting_for_new_video, F.video)
 async def edit_episode_video(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
+    vo_id = data.get('voiceover_id')
+    if not vo_id: return await state.clear()
     video_file_id = message.video.file_id
     
-    episode = await get_episode(session, data['anime_id'], data['episode_number'], data['voiceover_id'])
+    episode = await get_episode(session, data['anime_id'], data['episode_number'], vo_id)
     episode.tg_file_id = video_file_id
     await session.commit()
     
@@ -552,9 +559,11 @@ async def edit_episode_video(message: Message, state: FSMContext, session: Async
 @router.message(AdminEditEpisode.waiting_for_new_description)
 async def edit_episode_desc(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
+    vo_id = data.get('voiceover_id')
+    if not vo_id: return await state.clear()
     new_desc = message.text if message.text != "-" else None
     
-    episode = await get_episode(session, data['anime_id'], data['episode_number'], data['voiceover_id'])
+    episode = await get_episode(session, data['anime_id'], data['episode_number'], vo_id)
     episode.description = new_desc
     await session.commit()
     
