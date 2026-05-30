@@ -6,6 +6,7 @@ from states.fsm import SearchStates
 from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched
 from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard
 from datetime import datetime
+from handlers.helpers import delete_previous_menu, save_menu_msg, delete_previous_video, save_video_msg
 
 router = Router()
 
@@ -32,10 +33,12 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
     if len(results) == 1:
         item = results[0]
         if type(item).__name__ == "Folder":
-            await message.answer(
+            await delete_previous_menu(message, state)
+            msg = await message.answer(
                 "Найдена одна папка. Нажмите чтобы открыть:",
                 reply_markup=get_catalog_keyboard(results)
             )
+            await save_menu_msg(msg.message_id, state)
             return
             
         # Если это аниме
@@ -52,17 +55,21 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         
         quality_tag = " [4K]" if getattr(anime, 'is_4k', False) else ""
         
-        await message.answer_photo(
+        await delete_previous_menu(message, state)
+        msg = await message.answer_photo(
             photo=anime.photo_file_id,
             caption=f"🎬 <b>{anime.title}</b>{quality_tag}\n\n{anime.description}",
             reply_markup=get_anime_keyboard(anime.id, is_fav),
             parse_mode="HTML"
         )
+        await save_menu_msg(msg.message_id, state)
     else:
-        await message.answer(
+        await delete_previous_menu(message, state)
+        msg = await message.answer(
             "Найдено несколько совпадений. Выберите нужное:",
             reply_markup=get_catalog_keyboard(results)
         )
+        await save_menu_msg(msg.message_id, state)
 
 @router.callback_query(F.data.startswith("fav_"))
 async def process_favorite(callback: CallbackQuery, session: AsyncSession):
@@ -77,7 +84,7 @@ async def process_favorite(callback: CallbackQuery, session: AsyncSession):
     await callback.message.edit_reply_markup(reply_markup=get_anime_keyboard(anime_id, is_fav))
 
 @router.callback_query(F.data.startswith("watch_"))
-async def process_watch(callback: CallbackQuery, session: AsyncSession):
+async def process_watch(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     anime_id = int(callback.data.split("_")[1])
     
     anime = await get_anime(session, anime_id)
@@ -99,14 +106,16 @@ async def process_watch(callback: CallbackQuery, session: AsyncSession):
     user = await get_user(session, callback.from_user.id)
     watched_eps = await get_watched_episodes(session, user.id, anime_id)
     
-    await callback.message.answer(
+    await delete_previous_menu(callback, state)
+    msg = await callback.message.answer(
         "Выберите серию:",
         reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
     )
+    await save_menu_msg(msg.message_id, state)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("ep_"))
-async def process_episode(callback: CallbackQuery, session: AsyncSession):
+async def process_episode(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     _, anime_id, ep_num = callback.data.split("_")
     anime_id = int(anime_id)
     ep_num = int(ep_num)
@@ -115,7 +124,12 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession):
     if not episode:
         return await callback.answer("Ошибка: серия не найдена.", show_alert=True)
     
-    await callback.message.answer_video(video=episode.tg_file_id, caption=f"Серия {ep_num}")
+    # Удаляем предыдущее видео и меню
+    await delete_previous_video(callback, state)
+    await delete_previous_menu(callback, state)
+    
+    vid_msg = await callback.message.answer_video(video=episode.tg_file_id, caption=f"Серия {ep_num}")
+    await save_video_msg(vid_msg.message_id, state)
     
     # Обновляем историю и отмечаем серию как просмотренную
     user = await get_user(session, callback.from_user.id)
@@ -133,9 +147,10 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession):
         pass # Игнорируем, если клавиатура не изменилась (например, кликнули ту же серию)
         
     # Отправляем клавиатуру заново под видео для удобства
-    await callback.message.answer(
+    menu_msg = await callback.message.answer(
         "📺 Приятного просмотра! Выберите следующую серию:",
         reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
     )
+    await save_menu_msg(menu_msg.message_id, state)
         
     await callback.answer()

@@ -2,6 +2,8 @@ import html
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
+from handlers.helpers import delete_previous_menu, save_menu_msg
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.requests import get_user, create_user, get_favorites, get_history, get_all_anime, get_anime, get_all_folders, get_unlinked_anime, get_folder, get_anime_in_folder, get_4k_anime, get_user_by_username
 from keyboards.reply import get_main_menu
@@ -12,7 +14,7 @@ from config import ADMIN_IDS
 router = Router()
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, session: AsyncSession):
+async def cmd_start(message: Message, session: AsyncSession, state: FSMContext):
     user = await get_user(session, message.from_user.id)
     if not user:
         user = await create_user(session, message.from_user.id, message.from_user.username)
@@ -22,11 +24,12 @@ async def cmd_start(message: Message, session: AsyncSession):
         "Здесь вы можете смотреть любимые аниме в <b>оригинальном качестве</b> "
         "прямо в Telegram, без тормозов и назойливой рекламы."
     )
+    await delete_previous_menu(message, state)
     await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
 
 @router.message(Command("premium"))
 @router.message(F.text == "💎 Подписка")
-async def cmd_premium(message: Message, session: AsyncSession, command: CommandObject = None):
+async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext, command: CommandObject = None):
     user = await get_user(session, message.from_user.id)
     
     # Обработка /premium gift и /premium del для админов
@@ -86,6 +89,7 @@ async def cmd_premium(message: Message, session: AsyncSession, command: CommandO
         if user.premium_until > datetime.utcnow():
             days_left = (user.premium_until - datetime.utcnow()).days
             text = f"✨ <b>Ваша премиум подписка активна!</b>\n\nОсталось дней: <b>{days_left}</b>"
+            await delete_previous_menu(message, state)
             return await message.answer(text, parse_mode="HTML")
         else:
             user.is_premium = False
@@ -96,10 +100,11 @@ async def cmd_premium(message: Message, session: AsyncSession, command: CommandO
         "Для оформления подписки и получения доступа к эксклюзивным "
         "функциям, напишите в саппорт: @yto4ka39"
     )
+    await delete_previous_menu(message, state)
     await message.answer(text, parse_mode="HTML")
 
 @router.message(F.text == "📚 Каталог")
-async def show_catalog(message: Message, session: AsyncSession):
+async def show_catalog(message: Message, session: AsyncSession, state: FSMContext):
     folders = await get_all_folders(session)
     unlinked = await get_unlinked_anime(session, is_4k=False)
     items = list(folders) + list(unlinked)
@@ -107,29 +112,33 @@ async def show_catalog(message: Message, session: AsyncSession):
     if not items:
         return await message.answer("Каталог пока пуст.")
     
-    await message.answer(
+    await delete_previous_menu(message, state)
+    msg = await message.answer(
         "📚 <b>Выберите из каталога:</b>",
         reply_markup=get_catalog_keyboard(items),
         parse_mode="HTML"
     )
+    await save_menu_msg(msg.message_id, state)
 
 from database.requests import get_4k_anime
 
 @router.message(F.text == "📺 Каталог 4К")
-async def show_4k_catalog(message: Message, session: AsyncSession):
+async def show_4k_catalog(message: Message, session: AsyncSession, state: FSMContext):
     items = await get_4k_anime(session)
     
     if not items:
         return await message.answer("Каталог 4К пока пуст.")
         
-    await message.answer(
+    await delete_previous_menu(message, state)
+    msg = await message.answer(
         "📺 <b>Выберите аниме в 4К качестве:</b>\n<i>(Просмотр доступен только по подписке)</i>",
         reply_markup=get_catalog_keyboard(items),
         parse_mode="HTML"
     )
+    await save_menu_msg(msg.message_id, state)
 
 @router.callback_query(F.data.startswith("show_folder_"))
-async def show_folder_card(callback: CallbackQuery, session: AsyncSession):
+async def show_folder_card(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     folder_id = int(callback.data.split("_")[2])
     folder = await get_folder(session, folder_id)
     if not folder:
@@ -140,23 +149,26 @@ async def show_folder_card(callback: CallbackQuery, session: AsyncSession):
         
     text = f"📁 <b>{folder.title}</b>\n\n{folder.description}\n\nВыберите аниме:"
     
+    await delete_previous_menu(callback, state)
+    
     if folder.photo_file_id:
-        await callback.message.answer_photo(
+        msg = await callback.message.answer_photo(
             photo=folder.photo_file_id,
             caption=text,
             reply_markup=keyboard,
             parse_mode="HTML"
         )
     else:
-        await callback.message.answer(
+        msg = await callback.message.answer(
             text,
             reply_markup=keyboard,
             parse_mode="HTML"
         )
+    await save_menu_msg(msg.message_id, state)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("show_anime_"))
-async def show_anime_card(callback: CallbackQuery, session: AsyncSession):
+async def show_anime_card(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     anime_id = int(callback.data.split("_")[2])
     anime = await get_anime(session, anime_id)
     if not anime:
@@ -174,36 +186,42 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession):
         allowed_len = 1021 - len(f"🎬 <b>{title}</b>\n\n")
         caption = f"🎬 <b>{title}</b>\n\n{desc[:allowed_len]}..."
     
-    await callback.message.answer_photo(
+    await delete_previous_menu(callback, state)
+    msg = await callback.message.answer_photo(
         photo=anime.photo_file_id,
         caption=caption,
         reply_markup=get_anime_keyboard(anime.id, is_fav),
         parse_mode="HTML"
     )
+    await save_menu_msg(msg.message_id, state)
     await callback.answer()
 
 @router.message(F.text == "⭐ Избранное")
-async def show_favorites(message: Message, session: AsyncSession):
+async def show_favorites(message: Message, session: AsyncSession, state: FSMContext):
     user = await get_user(session, message.from_user.id)
     favs = await get_favorites(session, user.id)
     if not favs:
         return await message.answer("Ваш список избранного пуст.")
     
-    await message.answer(
+    await delete_previous_menu(message, state)
+    msg = await message.answer(
         "⭐ <b>Ваше избранное:</b>",
         reply_markup=get_catalog_keyboard(favs),
         parse_mode="HTML"
     )
+    await save_menu_msg(msg.message_id, state)
 
 @router.message(F.text == "🕒 История")
-async def show_history(message: Message, session: AsyncSession):
+async def show_history(message: Message, session: AsyncSession, state: FSMContext):
     user = await get_user(session, message.from_user.id)
     hist = await get_history(session, user.id)
     if not hist:
         return await message.answer("Вы еще ничего не смотрели.")
     
-    await message.answer(
+    await delete_previous_menu(message, state)
+    msg = await message.answer(
         "🕒 <b>Последние просмотренные:</b>",
         reply_markup=get_history_keyboard(hist),
         parse_mode="HTML"
     )
+    await save_menu_msg(msg.message_id, state)
