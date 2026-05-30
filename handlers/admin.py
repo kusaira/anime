@@ -175,6 +175,22 @@ async def cmd_admin(message: Message, command: CommandObject):
     if not is_admin(message.from_user.id):
         return
 
+    if command.args and command.args.strip().lower() == "help":
+        help_text = (
+            "🛠 <b>Доступные команды администратора:</b>\n\n"
+            "<code>/admin</code> — Открыть панель управления\n"
+            "<code>/logs</code> — Получить файл с логами действий админов\n"
+            "<code>/ad [текст]</code> — Сделать рассылку всем пользователям бота\n\n"
+        )
+        if is_superadmin(message.from_user.id):
+            help_text += (
+                "👑 <b>Команды суперадминистратора:</b>\n"
+                "<code>/superadmin add [ID]</code> — Назначить нового администратора\n"
+                "<code>/superadmin remove [ID]</code> — Удалить администратора\n"
+                "<code>/superadmin upgrade [ID]</code> — Назначить суперадминистратора\n"
+            )
+        return await message.answer(help_text, parse_mode="HTML")
+
     await message.answer("Панель администратора", reply_markup=get_admin_menu())
 
 @router.message(F.text == "🔙 В главное меню")
