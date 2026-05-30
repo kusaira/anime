@@ -38,8 +38,17 @@ async def add_anime(session: AsyncSession, title: str, description: str, photo_f
     return anime
 
 async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str):
-    episode = Episode(anime_id=anime_id, episode_number=episode_number, tg_file_id=tg_file_id)
-    session.add(episode)
+    result = await session.execute(
+        select(Episode).where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
+    )
+    episode = result.scalars().first()
+    
+    if episode:
+        episode.tg_file_id = tg_file_id
+    else:
+        episode = Episode(anime_id=anime_id, episode_number=episode_number, tg_file_id=tg_file_id)
+        session.add(episode)
+        
     await session.commit()
     return episode
 
@@ -103,7 +112,7 @@ async def get_episode(session: AsyncSession, anime_id: int, episode_number: int)
         select(Episode)
         .where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 async def get_episode_by_id(session: AsyncSession, episode_id: int):
     result = await session.execute(select(Episode).where(Episode.id == episode_id))
