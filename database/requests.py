@@ -192,6 +192,19 @@ async def add_folder(session: AsyncSession, title: str, description: str, photo_
     await session.refresh(folder)
     return folder
 
+async def update_folder(session: AsyncSession, folder_id: int, title: str = None, description: str = None, photo_file_id: str = None):
+    folder = await get_folder(session, folder_id)
+    if not folder:
+        return False
+    if title:
+        folder.title = title
+    if description:
+        folder.description = description
+    if photo_file_id:
+        folder.photo_file_id = photo_file_id
+    await session.commit()
+    return True
+
 async def delete_folder(session: AsyncSession, folder_id: int):
     folder = await get_folder(session, folder_id)
     if folder:
@@ -231,6 +244,14 @@ async def link_anime_to_folder(session: AsyncSession, folder_id: int, anime_id: 
         await session.commit()
         return True
     return False
+
+async def unlink_anime_from_folder(session: AsyncSession, folder_id: int, anime_id: int):
+    from sqlalchemy import delete
+    result = await session.execute(
+        delete(FolderItem).where(FolderItem.folder_id == folder_id, FolderItem.anime_id == anime_id)
+    )
+    await session.commit()
+    return result.rowcount > 0
 
 async def get_anime_in_folder(session: AsyncSession, folder_id: int):
     result = await session.execute(

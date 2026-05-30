@@ -18,6 +18,7 @@ def get_admin_menu():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Создать папку"), KeyboardButton(text="Удалить папку")],
+            [KeyboardButton(text="Редактировать папку"), KeyboardButton(text="Удалить аниме из папки")],
             [KeyboardButton(text="Привязать аниме к папке")],
             [KeyboardButton(text="Добавить аниме"), KeyboardButton(text="Удалить аниме")],
             [KeyboardButton(text="Редактировать аниме")],

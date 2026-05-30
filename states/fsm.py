@@ -40,6 +40,16 @@ class AdminLinkAnime(StatesGroup):
 class AdminDeleteFolder(StatesGroup):
     waiting_for_folder_id = State()
 
+class AdminEditFolder(StatesGroup):
+    waiting_for_folder_id = State()
+    waiting_for_new_title = State()
+    waiting_for_new_description = State()
+    waiting_for_new_photo = State()
+
+class AdminUnlinkAnime(StatesGroup):
+    waiting_for_folder_id = State()
+    waiting_for_anime_to_unlink = State()
+
 class AdminMassUpload(StatesGroup):
     waiting_for_anime_id = State()
     waiting_for_videos = State()

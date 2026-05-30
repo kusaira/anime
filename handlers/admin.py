@@ -7,9 +7,10 @@ import asyncio
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload
-from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime
+from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu
+from keyboards.inline import get_folder_animes_keyboard
 
 router = Router()
 
@@ -594,12 +595,122 @@ async def delete_folder_process(message: Message, state: FSMContext, session: As
     
     folder_id = int(message.text)
     success = await delete_folder(session, folder_id)
-    if success:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил папку ID {folder_id}")
-        await message.answer(f"Папка с ID {folder_id} успешно удалена.", reply_markup=get_admin_menu())
-    else:
-        await message.answer(f"Папка с ID {folder_id} не найдена.", reply_markup=get_admin_menu())
+    await message.answer("✅ Папка успешно удалена!", reply_markup=get_admin_menu())
+    await send_admin_log(message.bot, f"Админ {message.from_user.id} удалил папку {folder_id}")
     await state.clear()
+
+# --- Редактирование папки ---
+@router.message(F.text == "Редактировать папку")
+async def edit_folder_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    
+    folders = await get_all_folders(session)
+    text = "Список папок:\n\n"
+    for f in folders:
+        text += f"ID {f.id}: {f.title}\n"
+    text += "\nВведите ID папки для редактирования:"
+    await message.answer(text, reply_markup=get_cancel_menu())
+    await state.set_state(AdminEditFolder.waiting_for_folder_id)
+
+@router.message(AdminEditFolder.waiting_for_folder_id)
+async def edit_folder_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("Отправьте числовой ID.")
+    folder_id = int(message.text)
+    folder = await get_folder(session, folder_id)
+    if not folder:
+        return await message.answer("Папка не найдена.")
+        
+    await state.update_data(folder_id=folder_id)
+    await message.answer(f"Текущее название: {folder.title}\nВведите новое название (или '-' чтобы оставить прежним):")
+    await state.set_state(AdminEditFolder.waiting_for_new_title)
+
+@router.message(AdminEditFolder.waiting_for_new_title)
+async def edit_folder_title(message: Message, state: FSMContext):
+    title = None if message.text == "-" else message.text
+    await state.update_data(title=title)
+    await message.answer("Введите новое описание (или '-' чтобы оставить прежним):")
+    await state.set_state(AdminEditFolder.waiting_for_new_description)
+
+@router.message(AdminEditFolder.waiting_for_new_description)
+async def edit_folder_description(message: Message, state: FSMContext):
+    description = None if message.text == "-" else message.text
+    await state.update_data(description=description)
+    await message.answer("Отправьте новое фото для обложки (или '-' чтобы оставить прежним):")
+    await state.set_state(AdminEditFolder.waiting_for_new_photo)
+
+@router.message(AdminEditFolder.waiting_for_new_photo, F.photo | F.text == "-")
+async def edit_folder_photo(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    photo_file_id = None
+    if message.photo:
+        photo_file_id = message.photo[-1].file_id
+        
+    data = await state.get_data()
+    folder_id = data['folder_id']
+    title = data['title']
+    description = data['description']
+    
+    await update_folder(session, folder_id, title, description, photo_file_id)
+    await message.answer("✅ Папка успешно обновлена!", reply_markup=get_admin_menu())
+    await send_admin_log(bot, f"Админ {message.from_user.id} отредактировал папку {folder_id}")
+    await state.clear()
+
+# --- Удаление аниме из папки ---
+@router.message(F.text == "Удалить аниме из папки")
+async def unlink_anime_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    
+    folders = await get_all_folders(session)
+    text = "Список папок:\n\n"
+    for f in folders:
+        text += f"ID {f.id}: {f.title}\n"
+    text += "\nВведите ID папки, из которой нужно удалить аниме:"
+    await message.answer(text, reply_markup=get_cancel_menu())
+    await state.set_state(AdminUnlinkAnime.waiting_for_folder_id)
+
+@router.message(AdminUnlinkAnime.waiting_for_folder_id)
+async def unlink_anime_folder_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("Отправьте числовой ID.")
+    folder_id = int(message.text)
+    folder = await get_folder(session, folder_id)
+    if not folder:
+        return await message.answer("Папка не найдена.")
+        
+    animes = await get_anime_in_folder(session, folder_id)
+    if not animes:
+        await message.answer("Эта папка пуста.", reply_markup=get_admin_menu())
+        return await state.clear()
+        
+    await message.answer(
+        f"Аниме в папке <b>{folder.title}</b>:\nНажмите на аниме, чтобы удалить его из папки.",
+        reply_markup=get_folder_animes_keyboard(folder_id, animes),
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+@router.callback_query(F.data.startswith("unlink_"))
+async def process_unlink_anime(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    if not is_admin(callback.from_user.id): return
+    
+    # data: unlink_{folder_id}_{anime_id}
+    parts = callback.data.split("_")
+    folder_id = int(parts[1])
+    anime_id = int(parts[2])
+    
+    success = await unlink_anime_from_folder(session, folder_id, anime_id)
+    if success:
+        await callback.answer("✅ Аниме удалено из папки!", show_alert=True)
+        await send_admin_log(bot, f"Админ {callback.from_user.id} удалил аниме {anime_id} из папки {folder_id}")
+        
+        # Обновляем клавиатуру
+        animes = await get_anime_in_folder(session, folder_id)
+        if not animes:
+            await callback.message.edit_text("Папка теперь пуста.")
+        else:
+            await callback.message.edit_reply_markup(reply_markup=get_folder_animes_keyboard(folder_id, animes))
+    else:
+        await callback.answer("❌ Ошибка или аниме уже удалено.", show_alert=True)
 
 # --- Привязка аниме к папке ---
 @router.message(F.text == "Привязать аниме к папке")

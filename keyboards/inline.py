@@ -43,3 +43,10 @@ def get_history_keyboard(history_list: list):
         builder.button(text=text, callback_data=f"show_anime_{anime.id}")
     builder.adjust(1)
     return builder.as_markup()
+
+def get_folder_animes_keyboard(folder_id: int, animes: list):
+    builder = InlineKeyboardBuilder()
+    for anime in animes:
+        builder.button(text=f"❌ {anime.title}", callback_data=f"unlink_{folder_id}_{anime.id}")
+    builder.adjust(1)
+    return builder.as_markup()
