@@ -101,6 +101,20 @@ from database.requests import get_4k_anime
 
 @router.message(F.text == "📺 Каталог 4К")
 async def show_4k_catalog(message: Message, session: AsyncSession):
+    user = await get_user(session, message.from_user.id)
+    now = datetime.utcnow()
+    
+    if not user or not user.is_premium or (user.premium_until and user.premium_until < now):
+        if user and user.is_premium:
+            user.is_premium = False
+            await session.commit()
+        await message.answer(
+            "🚫 <b>Каталог 4К доступен только по подписке!</b>\n\nОформите премиум, чтобы смотреть аниме в максимальном качестве.",
+            reply_markup=get_payment_keyboard(),
+            parse_mode="HTML"
+        )
+        return
+        
     items = await get_4k_anime(session)
     
     if not items:
