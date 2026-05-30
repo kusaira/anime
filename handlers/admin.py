@@ -248,6 +248,8 @@ async def cmd_admin(message: Message, command: CommandObject):
                 "<code>/superadmin add [ID]</code> — Назначить нового администратора\n"
                 "<code>/superadmin remove [ID]</code> — Удалить администратора\n"
                 "<code>/superadmin upgrade [ID]</code> — Назначить суперадминистратора\n"
+                "<code>/superadmin premium gift [дни] [@username]</code> — Выдать премиум пользователю\n"
+                "<code>/superadmin premium del [@username]</code> — Забрать премиум у пользователя\n"
             )
         return await message.answer(help_text, parse_mode="HTML")
 
