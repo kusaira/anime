@@ -37,7 +37,7 @@ async def add_anime(session: AsyncSession, title: str, description: str, photo_f
     await session.refresh(anime)
     return anime
 
-async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str):
+async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str, description: str = None):
     result = await session.execute(
         select(Episode).where(Episode.anime_id == anime_id, Episode.episode_number == episode_number)
     )
@@ -45,8 +45,11 @@ async def add_episode(session: AsyncSession, anime_id: int, episode_number: int,
     
     if episode:
         episode.tg_file_id = tg_file_id
+        if description is not None:
+            episode.description = description if description != "-" else None
     else:
-        episode = Episode(anime_id=anime_id, episode_number=episode_number, tg_file_id=tg_file_id)
+        desc_val = description if description != "-" else None
+        episode = Episode(anime_id=anime_id, episode_number=episode_number, tg_file_id=tg_file_id, description=desc_val)
         session.add(episode)
         
     await session.commit()

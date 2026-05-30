@@ -7,9 +7,9 @@ import asyncio
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime, AdminEditEpisode
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder
-from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu
+from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu, get_admin_anime_menu, get_admin_episodes_menu, get_admin_folders_menu, get_edit_episode_menu
 from keyboards.inline import get_folder_animes_keyboard
 
 router = Router()
@@ -183,6 +183,26 @@ async def exit_admin_mode(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("Вы вышли в главное меню", reply_markup=get_main_menu())
 
+@router.message(F.text == "🎬 Управление Аниме")
+async def admin_anime_menu(message: Message):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Меню управления аниме:", reply_markup=get_admin_anime_menu())
+
+@router.message(F.text == "📺 Управление Сериями")
+async def admin_episodes_menu(message: Message):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Меню управления сериями:", reply_markup=get_admin_episodes_menu())
+
+@router.message(F.text == "📁 Управление Папками")
+async def admin_folders_menu(message: Message):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Меню управления папками:", reply_markup=get_admin_folders_menu())
+
+@router.message(F.text == "↩️ Назад в админку")
+async def back_to_admin_menu(message: Message):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Админ-панель:", reply_markup=get_admin_menu())
+
 @router.message(F.text == "❌ Отмена", StateFilter("*"))
 async def cancel_admin_action(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
@@ -326,6 +346,12 @@ async def add_episode_num(message: Message, state: FSMContext):
     if not message.text.isdigit():
         return await message.answer("Номер должен быть числом. Попробуйте еще раз:")
     await state.update_data(episode_number=int(message.text))
+    await message.answer("Отправьте описание серии (или отправьте тире '-', если описания нет):")
+    await state.set_state(AdminAddEpisode.waiting_for_episode_description)
+
+@router.message(AdminAddEpisode.waiting_for_episode_description)
+async def add_episode_desc(message: Message, state: FSMContext):
+    await state.update_data(episode_description=message.text)
     await message.answer("Отправьте или перешлите видео-файл серии:")
     await state.set_state(AdminAddEpisode.waiting_for_video)
 
@@ -334,9 +360,83 @@ async def add_episode_video(message: Message, state: FSMContext, session: AsyncS
     data = await state.get_data()
     video_file_id = message.video.file_id
     
-    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id)
+    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id, data['episode_description'])
     await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} для аниме ID {data['anime_id']}")
     await message.answer(f"Серия {data['episode_number']} успешно добавлена!", reply_markup=get_admin_menu())
+    await state.clear()
+
+# --- Редактирование серии ---
+@router.message(F.text == "Редактировать серию")
+async def edit_episode_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
+    await state.set_state(AdminEditEpisode.waiting_for_anime_id)
+
+@router.message(AdminEditEpisode.waiting_for_anime_id)
+async def edit_episode_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("ID должен быть числом.")
+    anime_id = int(message.text)
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        await message.answer("Аниме с таким ID не найдено.", reply_markup=get_admin_menu())
+        return await state.clear()
+        
+    await state.update_data(anime_id=anime_id)
+    await message.answer("Введите номер серии для редактирования:")
+    await state.set_state(AdminEditEpisode.waiting_for_episode_number)
+
+@router.message(AdminEditEpisode.waiting_for_episode_number)
+async def edit_episode_number(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("Номер должен быть числом.")
+    ep_num = int(message.text)
+    data = await state.get_data()
+    
+    episode = await get_episode(session, data['anime_id'], ep_num)
+    if not episode:
+        await message.answer(f"Серия {ep_num} у этого аниме не найдена.", reply_markup=get_admin_menu())
+        return await state.clear()
+        
+    await state.update_data(episode_number=ep_num)
+    await message.answer("Что вы хотите изменить?", reply_markup=get_edit_episode_menu())
+    await state.set_state(AdminEditEpisode.waiting_for_field)
+
+@router.message(AdminEditEpisode.waiting_for_field)
+async def edit_episode_field(message: Message, state: FSMContext):
+    if message.text == "Видео":
+        await message.answer("Отправьте новое видео:", reply_markup=get_cancel_menu())
+        await state.set_state(AdminEditEpisode.waiting_for_new_video)
+    elif message.text == "Описание":
+        await message.answer("Отправьте новое описание (или '-' чтобы удалить текущее):", reply_markup=get_cancel_menu())
+        await state.set_state(AdminEditEpisode.waiting_for_new_description)
+    else:
+        await message.answer("Пожалуйста, выберите опцию на клавиатуре.")
+
+@router.message(AdminEditEpisode.waiting_for_new_video, F.video)
+async def edit_episode_video(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    video_file_id = message.video.file_id
+    
+    episode = await get_episode(session, data['anime_id'], data['episode_number'])
+    episode.tg_file_id = video_file_id
+    await session.commit()
+    
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> обновил видео серии {data['episode_number']} для аниме ID {data['anime_id']}")
+    await message.answer("Видео серии успешно обновлено!", reply_markup=get_admin_menu())
+    await state.clear()
+
+@router.message(AdminEditEpisode.waiting_for_new_description)
+async def edit_episode_desc(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    new_desc = message.text if message.text != "-" else None
+    
+    episode = await get_episode(session, data['anime_id'], data['episode_number'])
+    episode.description = new_desc
+    await session.commit()
+    
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> обновил описание серии {data['episode_number']} для аниме ID {data['anime_id']}")
+    await message.answer("Описание серии успешно обновлено!", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Удаление аниме ---

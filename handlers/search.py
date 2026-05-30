@@ -136,7 +136,11 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     await delete_previous_video(callback, state)
     await delete_previous_menu(callback, state)
     
-    vid_msg = await callback.message.answer_video(video=episode.tg_file_id, caption=f"Серия {ep_num}")
+    caption = f"Серия {ep_num}"
+    if episode.description and episode.description != "-":
+        caption += f"\n\n{episode.description}"
+        
+    vid_msg = await callback.message.answer_video(video=episode.tg_file_id, caption=caption)
     await save_video_msg(vid_msg.message_id, state)
     
     # Обновляем историю и отмечаем серию как просмотренную

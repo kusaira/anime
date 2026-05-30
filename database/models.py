@@ -27,6 +27,7 @@ class Episode(Base):
     anime_id: Mapped[int] = mapped_column(ForeignKey('anime.id', ondelete='CASCADE'))
     episode_number: Mapped[int] = mapped_column(Integer)
     tg_file_id: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String, nullable=True)
 
 class Favorite(Base):
     __tablename__ = 'favorites'
