@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from states.fsm import SearchStates
-from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched
+from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched, get_folder_for_anime
 from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard, get_video_navigation_keyboard
 from datetime import datetime
 from handlers.helpers import delete_previous_menu, save_menu_msg, delete_previous_video, save_video_msg
@@ -20,8 +20,16 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
     query = message.text
     anime_results = await search_anime(session, query)
     folder_results = await search_folders(session, query)
+    # Исключаем из результатов аниме те тайтлы, папка которых уже нашлась в поиске
+    folder_ids = {f.id for f in folder_results}
+    filtered_anime = []
+    for anime in anime_results:
+        folder = await get_folder_for_anime(session, anime.id)
+        if folder and folder.id in folder_ids:
+            continue
+        filtered_anime.append(anime)
             
-    results = list(folder_results) + list(anime_results)
+    results = list(folder_results) + list(filtered_anime)
     
     if not results:
         await message.answer("По вашему запросу ничего не найдено.")
