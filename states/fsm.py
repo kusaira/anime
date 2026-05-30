@@ -21,6 +21,7 @@ class AdminAddEpisode(StatesGroup):
 
 class AdminDeleteAnime(StatesGroup):
     waiting_for_anime_id = State()
+    waiting_for_confirmation = State()
 
 class AdminDeleteEpisode(StatesGroup):
     waiting_for_episode_id = State()

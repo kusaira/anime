@@ -347,17 +347,42 @@ async def del_anime_start(message: Message, state: FSMContext):
     await state.set_state(AdminDeleteAnime.waiting_for_anime_id)
 
 @router.message(AdminDeleteAnime.waiting_for_anime_id)
-async def del_anime_process(message: Message, state: FSMContext, session: AsyncSession):
+async def del_anime_process_id(message: Message, state: FSMContext, session: AsyncSession):
     if not message.text.isdigit():
         return await message.answer("ID должен быть числом.")
     
     anime_id = int(message.text)
+    anime = await get_anime(session, anime_id)
+    if not anime:
+        await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
+        await state.clear()
+        return
+        
+    await state.update_data(anime_id=anime_id)
+    await message.answer(
+        f"Вы собираетесь безвозвратно удалить аниме <b>{anime.title}</b> (ID {anime_id}) и все его серии!\n\n"
+        "Вы точно уверены? Напишите:\n<code>Да, я беру ответственность на себя</code>\n\n"
+        "(Или нажмите кнопку Отмена)", 
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminDeleteAnime.waiting_for_confirmation)
+
+@router.message(AdminDeleteAnime.waiting_for_confirmation)
+async def del_anime_process_confirm(message: Message, state: FSMContext, session: AsyncSession):
+    if message.text.strip().lower() != "да, я беру ответственность на себя" and message.text.strip().lower() != "да, я беру ответсвтвенность на себя":
+        await message.answer("Удаление отменено. Текст подтверждения не совпадает.", reply_markup=get_admin_menu())
+        await state.clear()
+        return
+        
+    data = await state.get_data()
+    anime_id = data.get("anime_id")
+    
     success = await delete_anime(session, anime_id)
     if success:
         await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> удалил аниме ID {anime_id}")
-        await message.answer(f"Аниме с ID {anime_id} и все его серии удалены.", reply_markup=get_admin_menu())
+        await message.answer(f"Аниме с ID {anime_id} и все его серии успешно удалены.", reply_markup=get_admin_menu())
     else:
-        await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
+        await message.answer("Произошла ошибка при удалении.", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Редактирование аниме ---
