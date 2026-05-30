@@ -8,7 +8,7 @@ import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
 from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime, AdminEditEpisode, AdminEditVoiceover, AdminDeleteVoiceover
-from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder, get_episode
+from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder, get_episode, get_anime_by_display_id
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu, get_admin_anime_menu, get_admin_episodes_menu, get_admin_folders_menu, get_edit_episode_menu
 from keyboards.inline import get_folder_animes_keyboard
 
@@ -301,7 +301,7 @@ async def admin_list_anime(message: Message, session: AsyncSession):
         folder = await get_folder_for_anime(session, a.id)
         folder_text = f" (Папка ID {folder.id})" if folder else " (Без папки)"
         star = " 🌟" if getattr(a, 'is_4k', False) else ""
-        text += f"ID {a.id}: {a.title}{star}{folder_text}\n"
+        text += f"ID {a.display_id}: {a.title}{star}{folder_text}\n"
     
     await message.answer(text, parse_mode="HTML")
 
@@ -325,19 +325,17 @@ async def admin_list_episodes_start(message: Message, state: FSMContext, session
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"ID {a.id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"ID {a.display_id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите ID аниме для просмотра его серий:", reply_markup=get_cancel_menu())
     await state.set_state(AdminListEpisodes.waiting_for_anime_id)
 
 @router.message(AdminListEpisodes.waiting_for_anime_id)
 async def admin_list_episodes_process(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    
-    anime_id = int(message.text)
-    anime = await get_anime(session, anime_id)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
     if not anime:
         return await message.answer("Аниме с таким ID не найдено.", reply_markup=get_admin_menu())
+    anime_id = anime.id
     
     episodes = await get_episodes(session, anime_id)
     if not episodes:
@@ -358,9 +356,19 @@ async def add_anime_start(message: Message, state: FSMContext):
     await state.set_state(AdminAddAnime.waiting_for_title)
 
 @router.message(AdminAddAnime.waiting_for_title)
-async def add_anime_title(message: Message, state: FSMContext, session: AsyncSession):
+async def add_anime_title(message: Message, state: FSMContext):
     title = message.text.strip()
     await state.update_data(title=title)
+    await message.answer("Введите кастомный ID для этого аниме (например 4_1, 4_2 или просто число):", reply_markup=get_cancel_menu())
+    await state.set_state(AdminAddAnime.waiting_for_display_id)
+
+@router.message(AdminAddAnime.waiting_for_display_id)
+async def add_anime_display_id(message: Message, state: FSMContext, session: AsyncSession):
+    display_id = message.text.strip()
+    existing = await get_anime_by_display_id(session, display_id)
+    if existing:
+        return await message.answer("Аниме с таким кастомным ID уже существует. Введите другой ID:")
+    await state.update_data(display_id=display_id)
     await message.answer("Введите описание аниме:")
     await state.set_state(AdminAddAnime.waiting_for_description)
 
@@ -405,7 +413,7 @@ async def add_episode_start(message: Message, state: FSMContext, session: AsyncS
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"ID {a.id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"ID {a.display_id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите ID аниме:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddEpisode.waiting_for_anime_id)
 
@@ -459,10 +467,8 @@ async def edit_episode_start(message: Message, state: FSMContext):
 
 @router.message(AdminEditEpisode.waiting_for_anime_id)
 async def edit_episode_anime_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    anime_id = int(message.text)
-    anime = await get_anime(session, anime_id)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
     if not anime:
         await message.answer("Аниме с таким ID не найдено.", reply_markup=get_admin_menu())
         return await state.clear()
@@ -574,11 +580,8 @@ async def del_anime_start(message: Message, state: FSMContext):
 
 @router.message(AdminDeleteAnime.waiting_for_anime_id)
 async def del_anime_process_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    
-    anime_id = int(message.text)
-    anime = await get_anime(session, anime_id)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
     if not anime:
         await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
         await state.clear()
@@ -620,12 +623,11 @@ async def edit_anime_start(message: Message, state: FSMContext, session: AsyncSe
 
 @router.message(AdminEditAnime.waiting_for_anime_id)
 async def edit_anime_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    anime_id = int(message.text)
-    anime = await get_anime(session, anime_id)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
     if not anime:
         return await message.answer("Аниме не найдено.", reply_markup=get_admin_menu())
+    anime_id = anime.id
     
     await state.update_data(anime_id=anime_id)
     await message.answer(f"Текущее название: <b>{anime.title}</b>\nВведите новое название (или отправьте '-', чтобы оставить текущее):", parse_mode="HTML")
@@ -815,20 +817,18 @@ async def mass_upload_start(message: Message, state: FSMContext, session: AsyncS
     animes = await get_all_anime(session)
     text = "Выберите ID аниме для массовой загрузки серий:\n\n"
     for a in animes:
-        text += f"{a.id}. {a.title}\n"
+        text += f"{a.display_id}. {a.title}\n"
     await message.answer(text, reply_markup=get_cancel_menu())
     await state.set_state(AdminMassUpload.waiting_for_anime_id)
 
 @router.message(AdminMassUpload.waiting_for_anime_id)
 async def mass_upload_anime_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("Пожалуйста, отправьте числовой ID.")
-    anime_id = int(message.text)
-    anime = await get_anime(session, anime_id)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
     if not anime:
         return await message.answer("Аниме с таким ID не найдено. Попробуйте еще раз.")
     
-    await state.update_data(anime_id=anime_id)
+    await state.update_data(anime_id=anime.id)
     
     await message.answer("Введите название озвучки (или '-' для 'Оригинал'):", reply_markup=get_cancel_menu())
     await state.set_state(AdminMassUpload.waiting_for_voiceover_name)

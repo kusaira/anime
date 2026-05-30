@@ -17,6 +17,7 @@ class Anime(Base):
     __tablename__ = 'anime'
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String)
+    display_id: Mapped[str] = mapped_column(String, unique=True, nullable=True)
     description: Mapped[str] = mapped_column(String)
     photo_file_id: Mapped[str] = mapped_column(String)
     is_4k: Mapped[bool] = mapped_column(Boolean, default=False)

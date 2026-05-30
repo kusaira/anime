@@ -41,9 +41,11 @@ async def get_next_available_id(session: AsyncSession, model) -> int:
             break
     return next_id
 
-async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False):
+async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False, display_id: str = None):
     new_id = await get_next_available_id(session, Anime)
-    anime = Anime(id=new_id, title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k)
+    if not display_id:
+        display_id = str(new_id)
+    anime = Anime(id=new_id, title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k, display_id=display_id)
     session.add(anime)
     await session.commit()
     await session.refresh(anime)
@@ -380,3 +382,9 @@ async def get_unlinked_anime(session: AsyncSession, is_4k: bool = False):
 async def get_4k_anime(session: AsyncSession):
     result = await session.execute(select(Anime).where(Anime.is_4k == True))
     return result.scalars().all()
+
+async def get_anime_by_display_id(session, display_id: str):
+    from sqlalchemy import select
+    from database.models import Anime
+    result = await session.execute(select(Anime).where(Anime.display_id == str(display_id)))
+    return result.scalars().first()
