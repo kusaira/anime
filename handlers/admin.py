@@ -325,7 +325,7 @@ async def admin_list_episodes_start(message: Message, state: FSMContext, session
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"{a.id}. {a.title}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"ID {a.id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите ID аниме для просмотра его серий:", reply_markup=get_cancel_menu())
     await state.set_state(AdminListEpisodes.waiting_for_anime_id)
 
@@ -410,7 +410,7 @@ async def add_episode_start(message: Message, state: FSMContext, session: AsyncS
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"{a.id}. {a.title}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"ID {a.id}: {a.title}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите ID аниме:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddEpisode.waiting_for_anime_id)
 
