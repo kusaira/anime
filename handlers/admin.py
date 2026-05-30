@@ -360,11 +360,6 @@ async def add_anime_start(message: Message, state: FSMContext):
 @router.message(AdminAddAnime.waiting_for_title)
 async def add_anime_title(message: Message, state: FSMContext, session: AsyncSession):
     title = message.text.strip()
-    existing = await get_anime_by_title(session, title)
-    if existing:
-        await state.clear()
-        return await message.answer("пидорас прекрати", reply_markup=get_admin_menu())
-        
     await state.update_data(title=title)
     await message.answer("Введите описание аниме:")
     await state.set_state(AdminAddAnime.waiting_for_description)

@@ -30,8 +30,20 @@ async def set_premium(session: AsyncSession, telegram_id: int, premium_until: da
     )
     await session.commit()
 
+async def get_next_available_id(session: AsyncSession, model) -> int:
+    result = await session.execute(select(model.id).order_by(model.id))
+    existing_ids = result.scalars().all()
+    next_id = 1
+    for eid in existing_ids:
+        if eid == next_id:
+            next_id += 1
+        elif eid > next_id:
+            break
+    return next_id
+
 async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False):
-    anime = Anime(title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k)
+    new_id = await get_next_available_id(session, Anime)
+    anime = Anime(id=new_id, title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k)
     session.add(anime)
     await session.commit()
     await session.refresh(anime)
@@ -87,7 +99,9 @@ async def add_episode(session: AsyncSession, anime_id: int, episode_number: int,
             episode.description = description if description != "-" else None
     else:
         desc_val = description if description != "-" else None
+        new_id = await get_next_available_id(session, Episode)
         episode = Episode(
+            id=new_id,
             anime_id=anime_id, 
             episode_number=episode_number, 
             tg_file_id=tg_file_id, 
