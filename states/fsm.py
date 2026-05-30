@@ -5,7 +5,6 @@ class SearchStates(StatesGroup):
 
 class AdminAddAnime(StatesGroup):
     waiting_for_title = State()
-    waiting_for_display_id = State()
     waiting_for_description = State()
     waiting_for_quality = State()
     waiting_for_photo = State()
