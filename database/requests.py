@@ -127,7 +127,23 @@ async def update_anime(session: AsyncSession, anime_id: int, title: str = None, 
 async def delete_episode(session: AsyncSession, episode_id: int):
     episode = await get_episode_by_id(session, episode_id)
     if episode:
+        ep_num = episode.episode_number
+        anime_id = episode.anime_id
+        voiceover_id = episode.voiceover_id
+        
         await session.delete(episode)
+        
+        # Смещаем номера серий
+        from sqlalchemy import update
+        await session.execute(
+            update(Episode)
+            .where(
+                Episode.anime_id == anime_id,
+                Episode.voiceover_id == voiceover_id,
+                Episode.episode_number > ep_num
+            )
+            .values(episode_number=Episode.episode_number - 1)
+        )
         await session.commit()
         return True
     return False
