@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from states.fsm import SearchStates
 from database.requests import search_anime, search_folders, is_anime_in_any_folder, get_anime, get_episodes, get_user_history_for_anime, toggle_favorite, update_history, get_episode, get_user, get_watched_episodes, mark_episode_watched, get_folder_for_anime
-from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard, get_video_navigation_keyboard
+from keyboards.inline import get_anime_keyboard, get_episodes_keyboard, get_catalog_keyboard, get_payment_keyboard, get_video_navigation_keyboard, get_voiceovers_keyboard
 from datetime import datetime
 from handlers.helpers import delete_previous_menu, save_menu_msg, delete_previous_video, save_video_msg
 

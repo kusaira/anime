@@ -43,7 +43,7 @@ def get_episodes_keyboard(anime_id: int, voiceover_id: int, episodes: list, watc
     builder.adjust(5) # По 5 кнопок в ряд
     
     # Кнопка назад к озвучкам
-    builder.row(InlineKeyboardButton(text="⬅️ Назад к озвучкам", callback_data=f"anime_{anime_id}"))
+    builder.row(InlineKeyboardButton(text="⬅️ Назад к озвучкам", callback_data=f"watch_{anime_id}"))
     return builder.as_markup()
 
 def get_video_navigation_keyboard(anime_id: int, voiceover_id: int, current_ep: int, episodes: list):
