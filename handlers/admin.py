@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -304,6 +304,39 @@ async def admin_list_anime(message: Message, session: AsyncSession):
         text += f"ID {a.id}: {a.title}{star}{folder_text}\n"
     
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(F.text == "📥 Экспорт базы (CSV)")
+async def admin_export_csv(message: Message, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    animes = await get_all_anime(session)
+    if not animes:
+        return await message.answer("База данных аниме пуста.")
+        
+    import csv
+    import io
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(["ID", "Название", "Качество", "ID Папки"])
+    
+    for a in animes:
+        folder = await get_folder_for_anime(session, a.id)
+        folder_id = folder.id if folder else "Без папки"
+        quality = "4K" if getattr(a, 'is_4k', False) else "1080p"
+        
+        # Записываем display_id если он есть, иначе обычный id
+        anime_id = getattr(a, 'display_id', a.id) or a.id
+        writer.writerow([anime_id, a.title, quality, folder_id])
+        
+    csv_bytes = output.getvalue().encode('utf-8-sig') # utf-8-sig for excel compatibility
+    file = BufferedInputFile(csv_bytes, filename="anime_database.csv")
+    
+    await message.answer_document(
+        document=file,
+        caption="📥 <b>Экспорт базы данных аниме</b>\n\nФайл в формате CSV. Отлично открывается в Excel или Google Sheets (разделитель - точка с запятой).",
+        parse_mode="HTML"
+    )
 
 @router.message(F.text == "👥 Список пользователей")
 async def admin_list_users(message: Message, session: AsyncSession):

@@ -19,7 +19,7 @@ def get_admin_menu():
         keyboard=[
             [KeyboardButton(text="🎬 Управление Аниме"), KeyboardButton(text="📺 Управление Сериями")],
             [KeyboardButton(text="📁 Управление Папками"), KeyboardButton(text="👥 Список пользователей")],
-            [KeyboardButton(text="🔙 В главное меню")]
+            [KeyboardButton(text="📥 Экспорт базы (CSV)"), KeyboardButton(text="🔙 В главное меню")]
         ],
         resize_keyboard=True
     )
