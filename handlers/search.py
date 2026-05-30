@@ -119,4 +119,10 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession):
     except Exception:
         pass # Игнорируем, если клавиатура не изменилась (например, кликнули ту же серию)
         
+    # Отправляем клавиатуру заново под видео для удобства
+    await callback.message.answer(
+        "📺 Приятного просмотра! Выберите следующую серию:",
+        reply_markup=get_episodes_keyboard(anime_id, episodes, watched_eps)
+    )
+        
     await callback.answer()
