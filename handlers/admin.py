@@ -511,24 +511,29 @@ async def edit_episode_vo_id(message: Message, state: FSMContext, session: Async
 
 @router.message(AdminEditEpisode.waiting_for_episode_number)
 async def edit_episode_number(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("Номер должен быть числом.")
-    ep_num = int(message.text)
-    data = await state.get_data()
-    
-    vo_id = data.get('voiceover_id')
-    if not vo_id:
-        await message.answer("Сессия устарела. Начните заново из меню.", reply_markup=get_admin_menu())
-        return await state.clear()
+    try:
+        if not message.text.isdigit():
+            return await message.answer("Номер должен быть числом.")
+        ep_num = int(message.text)
+        data = await state.get_data()
         
-    episode = await get_episode(session, data['anime_id'], ep_num, vo_id)
-    if not episode:
-        await message.answer(f"Серия {ep_num} у этого аниме не найдена.", reply_markup=get_admin_menu())
-        return await state.clear()
-        
-    await state.update_data(episode_number=ep_num)
-    await message.answer("Что вы хотите изменить?", reply_markup=get_edit_episode_menu())
-    await state.set_state(AdminEditEpisode.waiting_for_field)
+        vo_id = data.get('voiceover_id')
+        if not vo_id:
+            await message.answer("Сессия устарела. Начните заново из меню.", reply_markup=get_admin_menu())
+            return await state.clear()
+            
+        episode = await get_episode(session, data['anime_id'], ep_num, vo_id)
+        if not episode:
+            await message.answer(f"Серия {ep_num} у этого аниме не найдена.", reply_markup=get_admin_menu())
+            return await state.clear()
+            
+        await state.update_data(episode_number=ep_num)
+        await message.answer("Что вы хотите изменить?", reply_markup=get_edit_episode_menu())
+        await state.set_state(AdminEditEpisode.waiting_for_field)
+    except Exception as e:
+        import traceback
+        err = traceback.format_exc()
+        await message.answer(f"Произошла ошибка:\n<pre>{err}</pre>", parse_mode="HTML")
 
 @router.message(AdminEditEpisode.waiting_for_field)
 async def edit_episode_field(message: Message, state: FSMContext):
