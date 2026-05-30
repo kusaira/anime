@@ -28,6 +28,24 @@ async def main():
     dp.include_router(payments.router)
     dp.include_router(admin.router)
     
+    # Глобальный обработчик ошибок
+    from aiogram.types import ErrorEvent
+    import traceback
+    from config import SUPERADMIN_IDS
+
+    @dp.errors()
+    async def global_error_handler(event: ErrorEvent, bot: Bot):
+        logging.error(f"Critical error: {event.exception}", exc_info=True)
+        tb_str = ''.join(traceback.format_exception(type(event.exception), event.exception, event.exception.__traceback__))
+        
+        error_msg = f"<b>⚠️ ПРОИЗОШЛА ОШИБКА! ПЕРЕШЛИ ЭТОТ ЛОГ РАЗРАБОТЧИКУ</b>\n\n<pre><code class='language-python'>{tb_str[-3800:]}</code></pre>"
+        for admin_id in SUPERADMIN_IDS:
+            try:
+                await bot.send_message(admin_id, error_msg, parse_mode="HTML")
+            except Exception:
+                pass
+
+    
     # Запускаем бота
     try:
         logging.info("Starting bot")
