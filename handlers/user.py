@@ -1,3 +1,4 @@
+import html
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
@@ -147,9 +148,19 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession):
     
     is_fav = False # Для упрощения пока False, можно добавить проверку если нужно
     
+    title = html.escape(anime.title)
+    desc = html.escape(anime.description) if anime.description else "Нет описания."
+    caption = f"🎬 <b>{title}</b>\n\n{desc}"
+    
+    # Ограничение Telegram на длину caption для фото — 1024 символа
+    if len(caption) > 1024:
+        # 1024 - 3 (для "...") = 1021
+        allowed_len = 1021 - len(f"🎬 <b>{title}</b>\n\n")
+        caption = f"🎬 <b>{title}</b>\n\n{desc[:allowed_len]}..."
+    
     await callback.message.answer_photo(
         photo=anime.photo_file_id,
-        caption=f"🎬 <b>{anime.title}</b>\n\n{anime.description}",
+        caption=caption,
         reply_markup=get_anime_keyboard(anime.id, is_fav),
         parse_mode="HTML"
     )
