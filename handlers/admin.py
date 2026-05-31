@@ -1201,7 +1201,7 @@ async def link_anime_process(message: Message, state: FSMContext, session: Async
 
 # --- Быстрое редактирование описания серии (/edit) ---
 @router.message(Command("edit"))
-async def quick_edit_episode(message: Message, state: FSMContext, session: AsyncSession):
+async def quick_edit_episode(message: Message, state: FSMContext, command: CommandObject, session: AsyncSession):
     from config import ADMIN_IDS, SUPERADMIN_IDS
     if not is_admin(message.from_user.id): return
     data = await state.get_data()
@@ -1214,6 +1214,18 @@ async def quick_edit_episode(message: Message, state: FSMContext, session: Async
     if not ep:
         return await message.answer("Ошибка: серия не найдена в базе.")
         
+    if command.args:
+        new_desc = command.args.strip()
+        if new_desc == "-":
+            new_desc = None
+        elif (new_desc.startswith('"') and new_desc.endswith('"')) or (new_desc.startswith("'") and new_desc.endswith("'")):
+            new_desc = new_desc[1:-1]
+            
+        ep.description = new_desc
+        await session.commit()
+        await message.answer("Описание серии успешно обновлено! Новое описание будет видно при следующем открытии этой серии.", reply_markup=get_admin_menu())
+        return
+
     desc = ep.description if ep.description else "Нет описания"
     await message.answer(f"Вы редактируете описание серии {ep.episode_number}.\nТекущее описание:\n<i>{desc}</i>\n\nВведите новое описание (или отправьте '-', чтобы очистить):", parse_mode="HTML", reply_markup=get_cancel_menu())
     await state.set_state(AdminQuickEditEpisode.waiting_for_new_description)
