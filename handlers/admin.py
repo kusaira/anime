@@ -242,7 +242,8 @@ async def cmd_admin(message: Message, command: CommandObject):
             "🛠 <b>Доступные команды администратора:</b>\n\n"
             "<code>/admin</code> — Открыть панель управления\n"
             "<code>/logs</code> — Получить файл с логами действий админов\n"
-            "<code>/ad [текст]</code> — Сделать рассылку всем пользователям бота\n\n"
+            "<code>/ad [текст]</code> — Сделать рассылку всем пользователям бота\n"
+            "<code>/edit</code> — Быстро изменить описание серии (отправьте при просмотре)\n\n"
         )
         if is_superadmin(message.from_user.id):
             help_text += (
