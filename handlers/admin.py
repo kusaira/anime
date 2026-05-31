@@ -873,14 +873,28 @@ async def mass_upload_start(message: Message, state: FSMContext, session: AsyncS
     if not is_admin(message.from_user.id): return
     
     animes = await get_all_anime(session)
+    if not animes:
+        return await message.answer("Сначала добавьте хотя бы одно аниме.", reply_markup=get_admin_menu())
+        
     text = "Выберите ID аниме для массовой загрузки серий:\n\n"
     for a in animes:
-        text += f"{a.display_id}. {html.escape(a.title)}\n"
-    await message.answer(text, reply_markup=get_cancel_menu(), parse_mode="HTML")
+        # Экранируем символы для Markdown (v1)
+        safe_title = str(a.title).replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
+        line = f"`{a.display_id}`. {safe_title}\n"
+        if len(text) + len(line) > 3800:
+            await message.answer(text, parse_mode="Markdown")
+            text = ""
+        text += line
+        
+    if text:
+        await message.answer(text, reply_markup=get_cancel_menu(), parse_mode="Markdown")
+        
     await state.set_state(AdminMassUpload.waiting_for_anime_id)
 
 @router.message(AdminMassUpload.waiting_for_anime_id)
 async def mass_upload_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text:
+        return await message.answer("Пожалуйста, введите текстовый ID аниме.")
     display_id = message.text.strip()
     anime = await get_anime_by_display_id(session, display_id)
     if not anime:
@@ -945,9 +959,12 @@ async def mass_upload_process_video(message: Message, state: FSMContext, session
     ep_num = int(numbers[0])
     
     await add_episode(session, anime_id, ep_num, file_id, None, data['voiceover_id'])
-    await message.answer(f"✅ Серия <b>{ep_num}</b> ({data['voiceover_name']}) успешно добавлена (файл: {file_name})", parse_mode="HTML", disable_notification=True)
-    await send_admin_log(bot, f"Админ {message.from_user.id} массово загрузил серию {ep_num} ({data['voiceover_name']}) для аниме {anime_id} ({file_name})")
-
+    
+    try:
+        await message.answer(f"✅ Серия <b>{ep_num}</b> ({data['voiceover_name']}) успешно добавлена (файл: {file_name})", parse_mode="HTML", disable_notification=True)
+        await send_admin_log(bot, f"Админ {message.from_user.id} массово загрузил серию {ep_num} ({data['voiceover_name']}) для аниме {anime_id} ({file_name})")
+    except Exception as e:
+        print(f"Не удалось отправить уведомление о загрузке (возможно флуд): {e}")
 # --- Создание папки ---
 @router.message(F.text == "Создать папку")
 async def add_folder_start(message: Message, state: FSMContext):
