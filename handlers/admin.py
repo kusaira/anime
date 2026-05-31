@@ -943,14 +943,26 @@ async def mass_upload_voiceover(message: Message, state: FSMContext, session: As
     from database.requests import get_or_create_voiceover
     data = await state.get_data()
     
-    vo = await get_or_create_voiceover(session, data['anime_id'], message.text)
-    await state.update_data(voiceover_id=vo.id, voiceover_name=vo.name)
+    if not message.text:
+        return await message.answer("Пожалуйста, введите текстовое название озвучки (или '-').")
+        
+    vo_name = message.text.strip()
+    vo_id = None
+    
+    if vo_name != "-":
+        vo = await get_or_create_voiceover(session, data['anime_id'], vo_name)
+        vo_id = vo.id
+        display_vo = html.escape(vo.name)
+    else:
+        display_vo = "Без озвучки"
+        
+    await state.update_data(voiceover_id=vo_id, voiceover_name=vo_name)
     
     anime = await get_anime(session, data['anime_id'])
     
     msg_text = (
         f"✅ Выбрано аниме: <b>{anime.title}</b>\n"
-        f"🎙 Озвучка: <b>{html.escape(vo.name)}</b>\n\n"
+        f"🎙 Озвучка: <b>{display_vo}</b>\n\n"
         "Теперь отправляйте видеофайлы или альбомы видео. "
         "Бот автоматически извлечет номер серии из названия файла "
         "(например: <code>1.mp4</code> или <code>серия 2.mp4</code>).\n\n"
