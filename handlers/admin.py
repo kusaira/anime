@@ -1184,11 +1184,24 @@ async def link_anime_start(message: Message, state: FSMContext, session: AsyncSe
     await state.set_state(AdminLinkAnime.waiting_for_folder_id)
 
 @router.message(AdminLinkAnime.waiting_for_folder_id)
-async def link_anime_folder_id(message: Message, state: FSMContext):
+async def link_anime_folder_id(message: Message, state: FSMContext, session: AsyncSession):
     if not message.text.isdigit():
         return await message.answer("ID должен быть числом.")
     await state.update_data(folder_id=int(message.text))
-    await message.answer("Введите номер аниме из списка для привязки:")
+    
+    animes = await get_all_anime(session)
+    if not animes:
+        return await message.answer("Нет доступных аниме для привязки.", reply_markup=get_admin_menu())
+        
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    
+    if len(text) > 4000:
+        for chunk in [text[i:i+4000] for i in range(0, len(text), 4000)]:
+            await message.answer(chunk, parse_mode="HTML")
+        await message.answer("Введите номер аниме из списка для привязки:")
+    else:
+        await message.answer(text + "\n\nВведите номер аниме из списка для привязки:", parse_mode="HTML")
+        
     await state.set_state(AdminLinkAnime.waiting_for_anime_id)
 
 @router.message(AdminLinkAnime.waiting_for_anime_id)
