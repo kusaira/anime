@@ -163,6 +163,9 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     vid_msg = await callback.message.answer_video(video=episode.tg_file_id, caption=caption)
     await save_video_msg(vid_msg.message_id, state)
     
+    # Сохраняем текущую серию для быстрого редактирования
+    await state.update_data(viewing_episode_id=episode.id)
+    
     # Обновляем историю и отмечаем серию как просмотренную
     user = await get_user(session, callback.from_user.id)
     await update_history(session, user.id, anime_id, ep_num)

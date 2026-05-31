@@ -1,5 +1,8 @@
 from aiogram.fsm.state import State, StatesGroup
 
+class AdminQuickEditEpisode(StatesGroup):
+    waiting_for_new_description = State()
+
 class SearchStates(StatesGroup):
     waiting_for_query = State()
 
