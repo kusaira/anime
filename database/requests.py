@@ -2,6 +2,9 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import User, Anime, Episode, Favorite, History, Folder, FolderItem, Voiceover, WatchedEpisode
 from datetime import datetime
+import asyncio
+
+episode_insert_lock = asyncio.Lock()
 
 async def get_user(session: AsyncSession, telegram_id: int):
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
@@ -81,39 +84,40 @@ async def delete_voiceover(session: AsyncSession, voiceover_id: int):
     return False
 
 async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str, description: str = None, voiceover_id: int = None):
-    # Если voiceover_id не передан, получаем "Оригинал"
-    if not voiceover_id:
-        vo = await get_or_create_voiceover(session, anime_id, "Оригинал")
-        voiceover_id = vo.id
+    async with episode_insert_lock:
+        # Если voiceover_id не передан, получаем "Оригинал"
+        if not voiceover_id:
+            vo = await get_or_create_voiceover(session, anime_id, "Оригинал")
+            voiceover_id = vo.id
 
-    result = await session.execute(
-        select(Episode).where(
-            Episode.anime_id == anime_id, 
-            Episode.episode_number == episode_number,
-            Episode.voiceover_id == voiceover_id
+        result = await session.execute(
+            select(Episode).where(
+                Episode.anime_id == anime_id, 
+                Episode.episode_number == episode_number,
+                Episode.voiceover_id == voiceover_id
+            )
         )
-    )
-    episode = result.scalars().first()
-    
-    if episode:
-        episode.tg_file_id = tg_file_id
-        if description is not None:
-            episode.description = description if description != "-" else None
-    else:
-        desc_val = description if description != "-" else None
-        new_id = await get_next_available_id(session, Episode)
-        episode = Episode(
-            id=new_id,
-            anime_id=anime_id, 
-            episode_number=episode_number, 
-            tg_file_id=tg_file_id, 
-            description=desc_val,
-            voiceover_id=voiceover_id
-        )
-        session.add(episode)
+        episode = result.scalars().first()
         
-    await session.commit()
-    return episode
+        if episode:
+            episode.tg_file_id = tg_file_id
+            if description is not None:
+                episode.description = description if description != "-" else None
+        else:
+            desc_val = description if description != "-" else None
+            new_id = await get_next_available_id(session, Episode)
+            episode = Episode(
+                id=new_id,
+                anime_id=anime_id, 
+                episode_number=episode_number, 
+                tg_file_id=tg_file_id, 
+                description=desc_val,
+                voiceover_id=voiceover_id
+            )
+            session.add(episode)
+            
+        await session.commit()
+        return episode
 
 async def delete_anime(session: AsyncSession, anime_id: int):
     anime = await get_anime(session, anime_id)
