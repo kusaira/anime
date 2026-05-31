@@ -55,7 +55,7 @@ async def add_anime(session: AsyncSession, title: str, description: str, photo_f
     return anime
 
 async def get_or_create_voiceover(session: AsyncSession, anime_id: int, name: str):
-    name = name.strip() if name != "-" else "Оригинал"
+    name = name.strip()
     result = await session.execute(
         select(Voiceover).where(Voiceover.anime_id == anime_id, Voiceover.name == name)
     )
@@ -85,10 +85,6 @@ async def delete_voiceover(session: AsyncSession, voiceover_id: int):
 
 async def add_episode(session: AsyncSession, anime_id: int, episode_number: int, tg_file_id: str, description: str = None, voiceover_id: int = None):
     async with episode_insert_lock:
-        # Если voiceover_id не передан, получаем "Оригинал"
-        if not voiceover_id:
-            vo = await get_or_create_voiceover(session, anime_id, "Оригинал")
-            voiceover_id = vo.id
 
         result = await session.execute(
             select(Episode).where(

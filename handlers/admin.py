@@ -484,12 +484,12 @@ async def add_episode_num(message: Message, state: FSMContext):
 @router.message(AdminAddEpisode.waiting_for_episode_description)
 async def add_episode_desc(message: Message, state: FSMContext):
     await state.update_data(episode_description=message.text)
-    await message.answer("Отправьте название озвучки (или отправьте тире '-', чтобы использовать 'Оригинал'):")
+    await message.answer("Отправьте название озвучки (или отправьте тире '-', если озвучки нет):")
     await state.set_state(AdminAddEpisode.waiting_for_voiceover_name)
 
 @router.message(AdminAddEpisode.waiting_for_voiceover_name)
 async def add_episode_voiceover(message: Message, state: FSMContext):
-    await state.update_data(voiceover_name=message.text)
+    await state.update_data(voiceover_name=message.text.strip())
     await message.answer("Отправьте или перешлите видео-файл серии:")
     await state.set_state(AdminAddEpisode.waiting_for_video)
 
@@ -499,11 +499,19 @@ async def add_episode_video(message: Message, state: FSMContext, session: AsyncS
     data = await state.get_data()
     video_file_id = message.video.file_id
     
-    vo = await get_or_create_voiceover(session, data['anime_id'], data['voiceover_name'])
+    vo_name = data['voiceover_name']
+    vo_id = None
     
-    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id, data['episode_description'], vo.id)
-    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} ({html.escape(vo.name)}) для аниме ID {data['anime_id']}")
-    await message.answer(f"Серия {data['episode_number']} (Озвучка: {html.escape(vo.name)}) успешно добавлена!", reply_markup=get_admin_menu())
+    if vo_name != "-":
+        vo = await get_or_create_voiceover(session, data['anime_id'], vo_name)
+        vo_id = vo.id
+        display_vo = html.escape(vo.name)
+    else:
+        display_vo = "Без озвучки"
+        
+    await add_episode(session, data['anime_id'], data['episode_number'], video_file_id, data['episode_description'], vo_id)
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил серию {data['episode_number']} ({display_vo}) для аниме ID {data['anime_id']}")
+    await message.answer(f"Серия {data['episode_number']} ({display_vo}) успешно добавлена!", reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Редактирование серии ---
