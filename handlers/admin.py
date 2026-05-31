@@ -620,13 +620,14 @@ async def del_anime_process_id(message: Message, state: FSMContext, session: Asy
     display_id = message.text.strip()
     anime = await get_anime_by_display_id(session, display_id)
     if not anime:
-        await message.answer(f"Аниме с ID {anime_id} не найдено.", reply_markup=get_admin_menu())
+        await message.answer(f"Аниме с ID {display_id} не найдено.", reply_markup=get_admin_menu())
         await state.clear()
         return
         
+    anime_id = anime.id
     await state.update_data(anime_id=anime_id)
     await message.answer(
-        f"Вы собираетесь безвозвратно удалить аниме <b>{anime.title}</b> (ID {anime_id}) и все его серии!\n\n"
+        f"Вы собираетесь безвозвратно удалить аниме <b>{anime.title}</b> (ID {display_id}) и все его серии!\n\n"
         "Вы точно уверены? Напишите:\n<code>Да, я беру ответственность на себя</code>\n\n"
         "(Или нажмите кнопку Отмена)", 
         parse_mode="HTML"
