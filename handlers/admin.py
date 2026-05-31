@@ -451,10 +451,12 @@ async def add_episode_start(message: Message, state: FSMContext, session: AsyncS
     await state.set_state(AdminAddEpisode.waiting_for_anime_id)
 
 @router.message(AdminAddEpisode.waiting_for_anime_id)
-async def add_episode_anime_id(message: Message, state: FSMContext):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом. Попробуйте еще раз:")
-    await state.update_data(anime_id=int(message.text))
+async def add_episode_anime_id(message: Message, state: FSMContext, session: AsyncSession):
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме с таким ID не найдено. Попробуйте еще раз:")
+    await state.update_data(anime_id=anime.id)
     await message.answer("Введите номер серии:")
     await state.set_state(AdminAddEpisode.waiting_for_episode_number)
 
@@ -779,9 +781,11 @@ async def edit_voiceover_start(message: Message, state: FSMContext):
 
 @router.message(AdminEditVoiceover.waiting_for_anime_id)
 async def edit_voiceover_anime_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    anime_id = int(message.text)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме не найдено.")
+    anime_id = anime.id
     from database.requests import get_voiceovers
     voiceovers = await get_voiceovers(session, anime_id)
     if not voiceovers:
@@ -829,9 +833,11 @@ async def delete_voiceover_start(message: Message, state: FSMContext):
 
 @router.message(AdminDeleteVoiceover.waiting_for_anime_id)
 async def delete_voiceover_anime_id(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
-    anime_id = int(message.text)
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме не найдено.")
+    anime_id = anime.id
     from database.requests import get_voiceovers
     voiceovers = await get_voiceovers(session, anime_id)
     if not voiceovers:
@@ -1134,13 +1140,15 @@ async def link_anime_folder_id(message: Message, state: FSMContext):
 
 @router.message(AdminLinkAnime.waiting_for_anime_id)
 async def link_anime_process(message: Message, state: FSMContext, session: AsyncSession):
-    if not message.text.isdigit():
-        return await message.answer("ID должен быть числом.")
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме с таким ID не найдено. Попробуйте еще раз.")
     
     data = await state.get_data()
-    success = await link_anime_to_folder(session, data['folder_id'], int(message.text))
+    success = await link_anime_to_folder(session, data['folder_id'], anime.id)
     if success:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> привязал аниме ID {message.text} к папке ID {data['folder_id']}")
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> привязал аниме (кастомный ID {display_id}) к папке ID {data['folder_id']}")
         await message.answer("Аниме успешно привязано к папке!", reply_markup=get_admin_menu())
     else:
         await message.answer("Ошибка привязки (возможно уже привязано).", reply_markup=get_admin_menu())
