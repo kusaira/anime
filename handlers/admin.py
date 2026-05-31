@@ -778,9 +778,12 @@ async def del_episode_process(message: Message, state: FSMContext, session: Asyn
 
 # --- Редактирование озвучки ---
 @router.message(F.text == "Редактировать озвучку")
-async def edit_voiceover_start(message: Message, state: FSMContext):
+async def edit_voiceover_start(message: Message, state: FSMContext, session: AsyncSession):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите ID аниме:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditVoiceover.waiting_for_anime_id)
 
 @router.message(AdminEditVoiceover.waiting_for_anime_id)
@@ -830,9 +833,12 @@ async def edit_voiceover_new_name(message: Message, state: FSMContext, session: 
 
 # --- Удаление озвучки ---
 @router.message(F.text == "Удалить озвучку")
-async def delete_voiceover_start(message: Message, state: FSMContext):
+async def delete_voiceover_start(message: Message, state: FSMContext, session: AsyncSession):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите ID аниме:", reply_markup=get_cancel_menu())
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите ID аниме:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteVoiceover.waiting_for_anime_id)
 
 @router.message(AdminDeleteVoiceover.waiting_for_anime_id)
@@ -903,7 +909,7 @@ async def mass_upload_anime_id(message: Message, state: FSMContext, session: Asy
     
     await state.update_data(anime_id=anime.id)
     
-    await message.answer("Введите название озвучки (или '-' для 'Оригинал'):", reply_markup=get_cancel_menu())
+    await message.answer("Введите название озвучки:", reply_markup=get_cancel_menu())
     await state.set_state(AdminMassUpload.waiting_for_voiceover_name)
 
 @router.message(AdminMassUpload.waiting_for_voiceover_name)
