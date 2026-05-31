@@ -314,7 +314,7 @@ async def admin_list_anime(message: Message, session: AsyncSession):
         folder = await get_folder_for_anime(session, a.id)
         folder_text = f" (Папка <code>{folder.id}</code>)" if folder else " (Без папки)"
         star = " 🌟" if getattr(a, 'is_4k', False) else ""
-        text += f"<code>{a.display_id}</code>. {html.escape(a.title)}{star}{folder_text}\n"
+        text += f"`{a.display_id}`. {html.escape(a.title)}{star}{folder_text}\n"
     
     await message.answer(text, parse_mode="HTML")
 
@@ -371,7 +371,7 @@ async def admin_list_episodes_start(message: Message, state: FSMContext, session
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка для просмотра его серий:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminListEpisodes.waiting_for_anime_id)
 
@@ -389,7 +389,7 @@ async def admin_list_episodes_process(message: Message, state: FSMContext, sessi
     else:
         text = f"📺 <b>Список серий аниме '{anime.title}':</b>\n\n"
         for ep in episodes:
-            text += f"<code>{ep.id}</code>. Серия {ep.episode_number}\n"
+            text += f"`{ep.id}`. Серия {ep.episode_number}\n"
         text += "\n<i>* Используйте Уникальный ID для точного удаления серии.</i>"
         await message.answer(text, reply_markup=get_admin_menu(), parse_mode="HTML")
     await state.clear()
@@ -459,7 +459,7 @@ async def add_episode_start(message: Message, state: FSMContext, session: AsyncS
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminAddEpisode.waiting_for_anime_id)
 
@@ -531,7 +531,7 @@ async def edit_episode_anime_id(message: Message, state: FSMContext, session: As
     
     text = "Выберите ID озвучки:\n"
     for vo in voiceovers:
-        text += f"<code>{vo.id}</code>. {html.escape(vo.name)}\n"
+        text += f"`{vo.id}`. {html.escape(vo.name)}\n"
         
     await message.answer(text, parse_mode="HTML")
     await state.set_state(AdminEditEpisode.waiting_for_voiceover_id)
@@ -621,9 +621,13 @@ async def edit_episode_desc(message: Message, state: FSMContext, session: AsyncS
 
 # --- Удаление аниме ---
 @router.message(F.text == "Удалить аниме")
-async def del_anime_start(message: Message, state: FSMContext):
+async def del_anime_start(message: Message, state: FSMContext, session: AsyncSession):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите номер аниме из списка для удаления:", reply_markup=get_cancel_menu())
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    import html
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите номер аниме из списка для удаления:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteAnime.waiting_for_anime_id)
 
 @router.message(AdminDeleteAnime.waiting_for_anime_id)
@@ -667,7 +671,11 @@ async def del_anime_process_confirm(message: Message, state: FSMContext, session
 @router.message(F.text == "Редактировать аниме")
 async def edit_anime_start(message: Message, state: FSMContext, session: AsyncSession):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введите номер аниме из списка для редактирования:", reply_markup=get_cancel_menu())
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    import html
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите номер аниме из списка для редактирования:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditAnime.waiting_for_anime_id)
 
 @router.message(AdminEditAnime.waiting_for_anime_id)
@@ -792,7 +800,7 @@ async def edit_voiceover_start(message: Message, state: FSMContext, session: Asy
     if not is_admin(message.from_user.id): return
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditVoiceover.waiting_for_anime_id)
 
@@ -811,7 +819,7 @@ async def edit_voiceover_anime_id(message: Message, state: FSMContext, session: 
     await state.update_data(anime_id=anime_id)
     text = "Выберите ID озвучки для переименования:\n\n"
     for vo in voiceovers:
-        text += f"<code>{vo.id}</code>. {html.escape(vo.name)}\n"
+        text += f"`{vo.id}`. {html.escape(vo.name)}\n"
     await message.answer(text, parse_mode="HTML")
     await state.set_state(AdminEditVoiceover.waiting_for_voiceover_id)
 
@@ -847,7 +855,7 @@ async def delete_voiceover_start(message: Message, state: FSMContext, session: A
     if not is_admin(message.from_user.id): return
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"`{a.display_id}`. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteVoiceover.waiting_for_anime_id)
 
@@ -865,7 +873,7 @@ async def delete_voiceover_anime_id(message: Message, state: FSMContext, session
         
     text = "Выберите ID озвучки для УДАЛЕНИЯ (вместе со всеми её сериями!):\n\n"
     for vo in voiceovers:
-        text += f"<code>{vo.id}</code>. {html.escape(vo.name)}\n"
+        text += f"`{vo.id}`. {html.escape(vo.name)}\n"
     await message.answer(text, parse_mode="HTML")
     await state.set_state(AdminDeleteVoiceover.waiting_for_voiceover_id)
 
@@ -1163,7 +1171,7 @@ async def link_anime_start(message: Message, state: FSMContext, session: AsyncSe
     if not folders:
         return await message.answer("Сначала создайте хотя бы одну папку.")
     
-    text = "Доступные папки:\n" + "\n".join([f"<code>{f.id}</code>. {html.escape(f.title)}" for f in folders])
+    text = "Доступные папки:\n" + "\n".join([f"`{f.id}`. {html.escape(f.title)}" for f in folders])
     await message.answer(text + "\n\nВведите ID папки:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminLinkAnime.waiting_for_folder_id)
 
