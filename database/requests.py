@@ -182,7 +182,12 @@ async def get_anime_by_title(session: AsyncSession, title: str):
 
 async def get_all_anime(session: AsyncSession):
     result = await session.execute(select(Anime))
-    return result.scalars().all()
+    animes = list(result.scalars().all())
+    import re
+    def natural_key(a):
+        did = getattr(a, 'display_id', '') or ''
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', did)]
+    return sorted(animes, key=natural_key)
 
 async def get_episodes(session: AsyncSession, anime_id: int, voiceover_id: int = None):
     query = select(Episode).where(Episode.anime_id == anime_id)
