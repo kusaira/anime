@@ -733,14 +733,29 @@ async def edit_anime_desc(message: Message, state: FSMContext, session: AsyncSes
     if desc == "-":
         desc = None
         
+    await state.update_data(new_description=desc)
+    
+    await message.answer("Отправьте новый постер (картинку) для аниме (или отправьте '-', чтобы оставить текущий):", parse_mode="HTML")
+    await state.set_state(AdminEditAnime.waiting_for_new_photo)
+
+@router.message(AdminEditAnime.waiting_for_new_photo, F.photo | F.text)
+async def edit_anime_photo(message: Message, state: FSMContext, session: AsyncSession):
+    if message.photo:
+        photo_id = message.photo[-1].file_id
+    elif message.text and message.text.strip() == "-":
+        photo_id = None
+    else:
+        return await message.answer("Пожалуйста, отправьте картинку или '-', чтобы оставить текущую.")
+        
     data = await state.get_data()
     anime_id = data['anime_id']
     title = data.get('new_title')
+    desc = data.get('new_description')
     display_id = data.get('new_display_id')
     
-    success = await update_anime(session, anime_id, title=title, description=desc, display_id=display_id)
+    success = await update_anime(session, anime_id, title=title, description=desc, display_id=display_id, photo_file_id=photo_id)
     if success:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> отредактировал название/описание аниме ID {anime_id}")
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> отредактировал информацию аниме ID {anime_id}")
         await message.answer("Аниме успешно обновлено!", reply_markup=get_admin_menu())
     else:
         await message.answer("Ошибка при обновлении аниме.", reply_markup=get_admin_menu())

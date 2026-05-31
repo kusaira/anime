@@ -18,6 +18,7 @@ class AdminEditAnime(StatesGroup):
     waiting_for_new_display_id = State()
     waiting_for_new_title = State()
     waiting_for_new_description = State()
+    waiting_for_new_photo = State()
 
 class AdminAddEpisode(StatesGroup):
     waiting_for_anime_id = State()

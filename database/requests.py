@@ -129,7 +129,7 @@ async def delete_anime(session: AsyncSession, anime_id: int):
         return True
     return False
 
-async def update_anime(session: AsyncSession, anime_id: int, title: str = None, description: str = None, display_id: str = None):
+async def update_anime(session: AsyncSession, anime_id: int, title: str = None, description: str = None, display_id: str = None, photo_file_id: str = None):
     anime = await get_anime(session, anime_id)
     if not anime:
         return False
@@ -139,6 +139,8 @@ async def update_anime(session: AsyncSession, anime_id: int, title: str = None, 
         anime.description = description
     if display_id:
         anime.display_id = display_id
+    if photo_file_id:
+        anime.photo_file_id = photo_file_id
     await session.commit()
     return True
 
