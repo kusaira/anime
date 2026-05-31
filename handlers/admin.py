@@ -244,7 +244,8 @@ async def cmd_admin(message: Message, command: CommandObject):
             "<code>/admin</code> — Открыть панель управления\n"
             "<code>/logs</code> — Получить файл с логами действий админов\n"
             "<code>/ad [текст]</code> — Сделать рассылку всем пользователям бота\n"
-            "<code>/edit</code> — Быстро изменить описание серии (отправьте при просмотре)\n\n"
+            "<code>/edit</code> — Быстро изменить описание серии (отправьте при просмотре)\n"
+            "<code>/clear_logs</code> — Удалить старые логи ошибок из чата\n\n"
         )
         if is_superadmin(message.from_user.id):
             help_text += (
@@ -1246,3 +1247,49 @@ async def whitelist_confirm_off(callback: CallbackQuery):
         json.dump({"enabled": False}, f)
     await callback.message.edit_text("❌ Режим технических работ ВЫКЛЮЧЕН. Бот доступен всем пользователям.")
     await callback.answer()
+
+# --- Очистка логов ошибок ---
+@router.message(Command("clear_logs"))
+async def clear_logs_cmd(message: Message, bot: Bot):
+    from config import SUPERADMIN_IDS
+    if message.from_user.id not in SUPERADMIN_IDS: return
+    
+    status_msg = await message.answer("⏳ Сканирую последние 150 сообщений чата в поисках логов ошибок...\n(Могут кратковременно мелькать пересланные сообщения, это нормально)")
+    
+    deleted_count = 0
+    start_id = message.message_id
+    
+    import asyncio
+    for msg_id in range(start_id - 1, max(0, start_id - 150), -1):
+        try:
+            # Пытаемся скопировать сообщение себе же, чтобы прочитать текст (обход ограничений Telegram API)
+            fwd = await bot.forward_message(
+                chat_id=message.chat.id, 
+                from_chat_id=message.chat.id, 
+                message_id=msg_id, 
+                disable_notification=True
+            )
+            
+            # Проверяем текст
+            is_error_log = False
+            if fwd.text and "ПРОИЗОШЛА ОШИБКА" in fwd.text:
+                is_error_log = True
+            elif fwd.caption and "ПРОИЗОШЛА ОШИБКА" in fwd.caption:
+                is_error_log = True
+                
+            # Удаляем форвард-пустышку
+            await bot.delete_message(chat_id=message.chat.id, message_id=fwd.message_id)
+            
+            # Если это лог ошибки - удаляем оригинал
+            if is_error_log:
+                await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                deleted_count += 1
+                
+            # Небольшая пауза, чтобы не словить FloodWait
+            await asyncio.sleep(0.06)
+            
+        except Exception:
+            # Сообщение не существует, удалено или мы не можем его переслать
+            pass
+            
+    await status_msg.edit_text(f"✅ Сканирование завершено.\nУспешно удалено логов об ошибках: {deleted_count}")
