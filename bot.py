@@ -5,6 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
 from database.engine import init_db, AsyncSessionLocal
 from middlewares.db_middleware import DbSessionMiddleware
+from middlewares.whitelist_middleware import WhitelistMiddleware
 from handlers import user, search, payments, admin
 
 async def main():
@@ -21,6 +22,8 @@ async def main():
     
     # Подключаем middleware
     dp.update.middleware(DbSessionMiddleware(session_pool=AsyncSessionLocal))
+    dp.message.middleware(WhitelistMiddleware())
+    dp.callback_query.middleware(WhitelistMiddleware())
     
     # Подключаем роутеры
     dp.include_router(user.router)
