@@ -839,48 +839,65 @@ async def mass_edit_episode_desc_process(message: Message, state: FSMContext, se
     if "|" not in text:
         return await message.answer("❌ Ошибка формата. Пожалуйста, используйте разделитель | (например: 1, 2-5 | описание)")
         
-    parts = text.split("|", 1)
-    ids_str = parts[0].replace(" ", "")
-    new_desc = parts[1].strip()
-    
-    if new_desc == "-":
-        new_desc = None
-        
-    ids_to_edit = set()
-    try:
-        for part in ids_str.split(","):
-            if not part: continue
-            if "-" in part:
-                sparts = part.split("-")
-                if len(sparts) == 2 and sparts[0].isdigit() and sparts[1].isdigit():
-                    start, end = int(sparts[0]), int(sparts[1])
-                    ids_to_edit.update(range(start, end + 1))
-                else:
-                    raise ValueError
-            elif part.isdigit():
-                ids_to_edit.add(int(part))
-            else:
-                raise ValueError
-    except ValueError:
-        return await message.answer("❌ Неверный формат ID. Используйте одно число (5), диапазон (5-10) или перечисление (1,5,7).")
-        
+    lines = text.strip().split('\n')
     from database.models import Episode
     
     updated_count = 0
-    for ep_id in ids_to_edit:
-        ep = await session.get(Episode, ep_id)
-        if ep:
-            ep.description = new_desc
-            updated_count += 1
+    errors = []
+    
+    for line_idx, line in enumerate(lines, 1):
+        line = line.strip()
+        if not line:
+            continue
             
+        if "|" not in line:
+            errors.append(f"Строка {line_idx}: нет разделителя |")
+            continue
+            
+        parts = line.split("|", 1)
+        ids_str = parts[0].replace(" ", "")
+        new_desc = parts[1].strip()
+        
+        if new_desc == "-":
+            new_desc = None
+            
+        ids_to_edit = set()
+        try:
+            for part in ids_str.split(","):
+                if not part: continue
+                if "-" in part:
+                    sparts = part.split("-")
+                    if len(sparts) == 2 and sparts[0].isdigit() and sparts[1].isdigit():
+                        start, end = int(sparts[0]), int(sparts[1])
+                        ids_to_edit.update(range(start, end + 1))
+                    else:
+                        raise ValueError
+                elif part.isdigit():
+                    ids_to_edit.add(int(part))
+                else:
+                    raise ValueError
+        except ValueError:
+            errors.append(f"Строка {line_idx}: Неверный формат ID ({ids_str})")
+            continue
+            
+        for ep_id in ids_to_edit:
+            ep = await session.get(Episode, ep_id)
+            if ep:
+                ep.description = new_desc
+                updated_count += 1
+            else:
+                errors.append(f"ID {ep_id}: серия не найдена")
+                
     await session.commit()
     
-    if updated_count > 0:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> массово изменил описание для {updated_count} серий.")
-        await message.answer(f"✅ Успешно обновлено описаний: {updated_count}.", reply_markup=get_admin_menu())
-    else:
-        await message.answer("❌ Серии с указанными ID не найдены.", reply_markup=get_admin_menu())
-        
+    msg = f"✅ Успешно обновлено описаний: {updated_count}."
+    if errors:
+        msg += "\n\n⚠️ Замечания:\n" + "\n".join(errors[:10])
+        if len(errors) > 10:
+            msg += f"\n...и еще {len(errors) - 10} ошибок."
+            
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> массово изменил описание для {updated_count} серий.")
+    await message.answer(msg, reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Редактирование озвучки ---
