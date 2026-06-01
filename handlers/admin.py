@@ -421,16 +421,12 @@ async def add_anime_display_id(message: Message, state: FSMContext, session: Asy
 @router.message(AdminAddAnime.waiting_for_description)
 async def add_anime_desc(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
-    await message.answer("Выберите качество аниме:", reply_markup=get_quality_keyboard())
-    await state.set_state(AdminAddAnime.waiting_for_quality)
-
-@router.message(AdminAddAnime.waiting_for_quality)
-async def add_anime_quality(message: Message, state: FSMContext):
-    if message.text == "4K (Высокое)":
-        await state.update_data(is_4k=True)
-    else:
-        await state.update_data(is_4k=False)
-        
+    
+    data = await state.get_data()
+    display_id = data.get('display_id', '')
+    is_4k = "_2" in display_id
+    await state.update_data(is_4k=is_4k)
+    
     await message.answer("Отправьте постер (фото) аниме:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddAnime.waiting_for_photo)
 
