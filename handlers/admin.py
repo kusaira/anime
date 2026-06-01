@@ -992,9 +992,9 @@ async def mass_upload_start(message: Message, state: FSMContext, session: AsyncS
         
     text = "Выберите ID аниме для массовой загрузки серий:\n\n"
     for a in animes:
-        # Экранируем символы для Markdown (v1)
-        safe_title = str(a.title).replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
-        line = f"<code>{a.display_id}</code>. {safe_title}\n"
+        safe_title = html.escape(str(a.title))
+        star = ' 🌟' if getattr(a, 'is_4k', False) else ''
+        line = f"<code>{a.display_id}</code>. {safe_title}{star}\n"
         if len(text) + len(line) > 3800:
             await message.answer(text, parse_mode="HTML")
             text = ""
