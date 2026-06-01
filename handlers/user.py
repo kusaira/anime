@@ -51,6 +51,18 @@ async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext
     await delete_previous_menu(message, state)
     await message.answer(text, parse_mode="HTML")
 
+@router.message(F.text == "🆘 Поддержка")
+async def cmd_support(message: Message, state: FSMContext):
+    text = (
+        "🆘 <b>Служба поддержки</b>\n\n"
+        "Возникли проблемы с оплатой, не грузит видео или нашли баг? "
+        "А может просто хотите предложить крутое аниме для добавления?\n\n"
+        "Мы всегда на связи и готовы помочь! Пишите сюда: "
+        "👉 https://t.me/Kusaira_anime?direct"
+    )
+    await delete_previous_menu(message, state)
+    await message.answer(text, parse_mode="HTML")
+
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession, state: FSMContext):
     folders = await get_all_folders(session)
