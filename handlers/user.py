@@ -46,7 +46,7 @@ async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext
     text = (
         "😔 <b>У вас нет активной подписки.</b>\n\n"
         "Для оформления подписки и получения доступа к эксклюзивным "
-        "функциям, напишите в саппорт: @yto4ka39"
+        "функциям, напишите в саппорт: https://t.me/Kusaira_anime?direct"
     )
     await delete_previous_menu(message, state)
     await message.answer(text, parse_mode="HTML")

@@ -12,7 +12,7 @@ async def process_payment_stub(callback: CallbackQuery, session: AsyncSession):
     text = (
         "😔 <b>У вас нет активной подписки.</b>\n\n"
         "Для оформления подписки и получения доступа к эксклюзивным "
-        "функциям, напишите в саппорт: @yto4ka39"
+        "функциям, напишите в саппорт: https://t.me/Kusaira_anime?direct"
     )
     await callback.message.edit_text(text, parse_mode="HTML")
     await callback.answer()
