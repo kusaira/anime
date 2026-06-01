@@ -817,6 +817,72 @@ async def del_episode_process(message: Message, state: FSMContext, session: Asyn
         
     await state.clear()
 
+# --- Массовое редактирование описаний серий ---
+@router.message(F.text == "Масс. смена описаний")
+async def mass_edit_episode_desc_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    msg = (
+        "Введите Уникальные ID серий и новое описание через разделитель <code>|</code>\n\n"
+        "Формат:\n"
+        "<code>ID, ID, ID-ID | Новое описание</code>\n\n"
+        "Примеры:\n"
+        "<code>1, 2, 5-10 | Крутое описание для этих серий</code>\n"
+        "<code>15 | Описание только для 15 серии</code>\n\n"
+        "Если отправить <code>-</code> вместо описания, оно будет очищено."
+    )
+    await message.answer(msg, reply_markup=get_cancel_menu(), parse_mode="HTML")
+    await state.set_state(AdminMassEditEpisodeDesc.waiting_for_data)
+
+@router.message(AdminMassEditEpisodeDesc.waiting_for_data)
+async def mass_edit_episode_desc_process(message: Message, state: FSMContext, session: AsyncSession):
+    text = message.text
+    if "|" not in text:
+        return await message.answer("❌ Ошибка формата. Пожалуйста, используйте разделитель | (например: 1, 2-5 | описание)")
+        
+    parts = text.split("|", 1)
+    ids_str = parts[0].replace(" ", "")
+    new_desc = parts[1].strip()
+    
+    if new_desc == "-":
+        new_desc = None
+        
+    ids_to_edit = set()
+    try:
+        for part in ids_str.split(","):
+            if not part: continue
+            if "-" in part:
+                sparts = part.split("-")
+                if len(sparts) == 2 and sparts[0].isdigit() and sparts[1].isdigit():
+                    start, end = int(sparts[0]), int(sparts[1])
+                    ids_to_edit.update(range(start, end + 1))
+                else:
+                    raise ValueError
+            elif part.isdigit():
+                ids_to_edit.add(int(part))
+            else:
+                raise ValueError
+    except ValueError:
+        return await message.answer("❌ Неверный формат ID. Используйте одно число (5), диапазон (5-10) или перечисление (1,5,7).")
+        
+    from database.models import Episode
+    
+    updated_count = 0
+    for ep_id in ids_to_edit:
+        ep = await session.get(Episode, ep_id)
+        if ep:
+            ep.description = new_desc
+            updated_count += 1
+            
+    await session.commit()
+    
+    if updated_count > 0:
+        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> массово изменил описание для {updated_count} серий.")
+        await message.answer(f"✅ Успешно обновлено описаний: {updated_count}.", reply_markup=get_admin_menu())
+    else:
+        await message.answer("❌ Серии с указанными ID не найдены.", reply_markup=get_admin_menu())
+        
+    await state.clear()
+
 # --- Редактирование озвучки ---
 @router.message(F.text == "Редактировать озвучку")
 async def edit_voiceover_start(message: Message, state: FSMContext, session: AsyncSession):

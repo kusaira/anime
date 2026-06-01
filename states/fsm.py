@@ -80,3 +80,6 @@ class AdminMassUpload(StatesGroup):
     waiting_for_anime_id = State()
     waiting_for_voiceover_name = State()
     waiting_for_videos = State()
+
+class AdminMassEditEpisodeDesc(StatesGroup):
+    waiting_for_data = State()
