@@ -8,7 +8,7 @@ import asyncio
 import logging
 import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
-from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime, AdminEditEpisode, AdminEditVoiceover, AdminDeleteVoiceover, AdminQuickEditEpisode, AdminMassEditEpisodeDesc
+from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime, AdminEditEpisode, AdminEditVoiceover, AdminDeleteVoiceover, AdminQuickEditEpisode, AdminMassEditEpisodeDesc, AdminCopyDescriptions
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder, get_episode, get_anime_by_display_id
 from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu, get_admin_anime_menu, get_admin_episodes_menu, get_admin_folders_menu, get_edit_episode_menu
 from keyboards.inline import get_folder_animes_keyboard
