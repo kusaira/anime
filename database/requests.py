@@ -323,8 +323,14 @@ async def get_folder_by_title(session: AsyncSession, title: str):
     result = await session.execute(select(Folder).where(Folder.title.ilike(title.strip())))
     return result.scalars().first()
 
-async def get_all_folders(session: AsyncSession):
-    result = await session.execute(select(Folder))
+async def get_all_folders(session: AsyncSession, is_4k: bool = None):
+    from sqlalchemy import or_
+    query = select(Folder)
+    if is_4k is True:
+        query = query.where(Folder.is_4k == True)
+    elif is_4k is False:
+        query = query.where(or_(Folder.is_4k == False, Folder.is_4k.is_(None)))
+    result = await session.execute(query)
     return result.scalars().all()
 
 async def search_folders(session: AsyncSession, query: str):
