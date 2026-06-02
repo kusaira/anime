@@ -1313,26 +1313,39 @@ async def link_anime_folder_id(message: Message, state: FSMContext, session: Asy
     if len(text) > 4000:
         for chunk in [text[i:i+4000] for i in range(0, len(text), 4000)]:
             await message.answer(chunk, parse_mode="HTML")
-        await message.answer("Введите номер аниме из списка для привязки:")
+        await message.answer("Введите кастомный ID аниме для привязки (можно несколько через пробел):")
     else:
-        await message.answer(text + "\n\nВведите номер аниме из списка для привязки:", parse_mode="HTML")
+        await message.answer(text + "\n\nВведите кастомный ID аниме для привязки (можно несколько через пробел):", parse_mode="HTML")
         
     await state.set_state(AdminLinkAnime.waiting_for_anime_id)
 
 @router.message(AdminLinkAnime.waiting_for_anime_id)
 async def link_anime_process(message: Message, state: FSMContext, session: AsyncSession):
-    display_id = message.text.strip()
-    anime = await get_anime_by_display_id(session, display_id)
-    if not anime:
-        return await message.answer("Аниме с таким ID не найдено. Попробуйте еще раз.")
-    
+    display_ids = message.text.strip().split()
     data = await state.get_data()
-    success = await link_anime_to_folder(session, data['folder_id'], anime.id)
-    if success:
-        await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> привязал аниме (кастомный ID {display_id}) к папке ID {data['folder_id']}")
-        await message.answer("Аниме успешно привязано к папке!", reply_markup=get_admin_menu())
-    else:
-        await message.answer("Ошибка привязки (возможно уже привязано).", reply_markup=get_admin_menu())
+    folder_id = data['folder_id']
+    
+    success_count = 0
+    errors = []
+    
+    for display_id in display_ids:
+        anime = await get_anime_by_display_id(session, display_id)
+        if not anime:
+            errors.append(f"{display_id}: не найдено")
+            continue
+        
+        success = await link_anime_to_folder(session, folder_id, anime.id)
+        if success:
+            success_count += 1
+        else:
+            errors.append(f"{display_id}: уже привязано")
+            
+    msg = f"✅ Успешно привязано аниме: {success_count}."
+    if errors:
+        msg += "\n\n⚠️ Ошибки:\n" + "\n".join(errors)
+        
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> привязал {success_count} аниме к папке ID {folder_id}")
+    await message.answer(msg, reply_markup=get_admin_menu())
     await state.clear()
 
 # --- Быстрое редактирование описания серии (/edit) ---
