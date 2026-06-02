@@ -20,11 +20,11 @@ def get_catalog_keyboard(items: list):
     for item in items:
         if type(item).__name__ == "Folder":
             is_4k = getattr(item, 'is_4k', False)
-            title = f"📁 {'🌟 ' if is_4k else ''}{item.title}"
+            title = f"📁 {'💎 ' if is_4k else ''}{item.title}"
             builder.button(text=title, callback_data=f"show_folder_{item.id}")
         else:
             is_4k = getattr(item, 'is_4k', False)
-            title = f"{'🌟 ' if is_4k else ''}{item.title}"
+            title = f"{'💎 ' if is_4k else ''}{item.title}"
             builder.button(text=title, callback_data=f"show_anime_{item.id}")
     builder.adjust(1) # По 1 кнопке в ряд (списком)
     return builder.as_markup()

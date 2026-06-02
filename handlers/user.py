@@ -141,7 +141,7 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession, state:
     
     title = html.escape(anime.title)
     desc = html.escape(anime.description) if anime.description else "Нет описания."
-    quality_tag = "🌟 " if getattr(anime, 'is_4k', False) else ""
+    quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
     caption = f"🎬 {quality_tag}<b>{title}</b>\n\n{desc}"
     
     # Ограничение Telegram на длину caption для фото — 1024 символа

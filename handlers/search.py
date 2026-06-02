@@ -61,7 +61,7 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         favs = await get_favorites(session, user.id)
         is_fav = any(f.id == anime.id for f in favs) if favs else False
         
-        quality_tag = "🌟 " if getattr(anime, 'is_4k', False) else ""
+        quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
         
         await delete_previous_menu(message, state)
         msg = await message.answer_photo(

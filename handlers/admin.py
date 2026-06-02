@@ -313,7 +313,7 @@ async def admin_list_anime(message: Message, session: AsyncSession):
     for a in animes:
         folder = await get_folder_for_anime(session, a.id)
         folder_text = f" (Папка <code>{folder.id}</code>)" if folder else " (Без папки)"
-        star = "🌟 " if getattr(a, 'is_4k', False) else ""
+        star = "💎 " if getattr(a, 'is_4k', False) else ""
         text += f"<code>{a.display_id}</code>. {star}{html.escape(a.title)}{folder_text}\n"
     
     await message.answer(text, parse_mode="HTML")
@@ -371,7 +371,7 @@ async def admin_list_episodes_start(message: Message, state: FSMContext, session
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка для просмотра его серий:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminListEpisodes.waiting_for_anime_id)
 
@@ -455,7 +455,7 @@ async def add_episode_start(message: Message, state: FSMContext, session: AsyncS
     if not animes:
         return await message.answer("Сначала добавьте хотя бы одно аниме.")
     
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminAddEpisode.waiting_for_anime_id)
 
@@ -630,7 +630,7 @@ async def del_anime_start(message: Message, state: FSMContext, session: AsyncSes
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
     import html
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка для удаления:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteAnime.waiting_for_anime_id)
 
@@ -678,7 +678,7 @@ async def edit_anime_start(message: Message, state: FSMContext, session: AsyncSe
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
     import html
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка для редактирования:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditAnime.waiting_for_anime_id)
 
@@ -902,7 +902,7 @@ async def edit_voiceover_start(message: Message, state: FSMContext, session: Asy
     if not is_admin(message.from_user.id): return
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditVoiceover.waiting_for_anime_id)
 
@@ -957,7 +957,7 @@ async def delete_voiceover_start(message: Message, state: FSMContext, session: A
     if not is_admin(message.from_user.id): return
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите номер аниме из списка:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteVoiceover.waiting_for_anime_id)
 
@@ -1006,7 +1006,7 @@ async def mass_upload_start(message: Message, state: FSMContext, session: AsyncS
     text = "Выберите ID аниме для массовой загрузки серий:\n\n"
     for a in animes:
         safe_title = html.escape(str(a.title))
-        star = '🌟 ' if getattr(a, 'is_4k', False) else ''
+        star = '💎 ' if getattr(a, 'is_4k', False) else ''
         line = f"<code>{a.display_id}</code>. {star}{safe_title}\n"
         if len(text) + len(line) > 3800:
             await message.answer(text, parse_mode="HTML")
@@ -1308,7 +1308,7 @@ async def link_anime_folder_id(message: Message, state: FSMContext, session: Asy
     if not animes:
         return await message.answer("Нет доступных аниме для привязки.", reply_markup=get_admin_menu())
         
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     
     if len(text) > 4000:
         for chunk in [text[i:i+4000] for i in range(0, len(text), 4000)]:
@@ -1485,7 +1485,7 @@ async def copy_desc_start(message: Message, state: FSMContext, session: AsyncSes
     if not is_admin(message.from_user.id): return
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите кастомный ID аниме <b>ИСТОЧНИКА</b> (откуда копировать):", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminCopyDescriptions.waiting_for_source_anime)
 
@@ -1524,7 +1524,7 @@ async def copy_desc_source_vo(message: Message, state: FSMContext, session: Asyn
         
     from database.requests import get_all_anime
     animes = await get_all_anime(session)
-    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'🌟 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {'💎 ' if getattr(a, 'is_4k', False) else ''}{html.escape(a.title)}" for a in animes])
     await message.answer(text + "\n\nВведите кастомный ID аниме <b>НАЗНАЧЕНИЯ</b> (куда копировать):", parse_mode="HTML")
     await state.set_state(AdminCopyDescriptions.waiting_for_dest_anime)
 
