@@ -57,6 +57,7 @@ class AdminAddFolder(StatesGroup):
     waiting_for_title = State()
     waiting_for_description = State()
     waiting_for_photo = State()
+    waiting_for_quality = State()
 
 class AdminLinkAnime(StatesGroup):
     waiting_for_folder_id = State()

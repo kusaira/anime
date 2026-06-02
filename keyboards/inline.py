@@ -19,7 +19,9 @@ def get_catalog_keyboard(items: list):
     builder = InlineKeyboardBuilder()
     for item in items:
         if type(item).__name__ == "Folder":
-            builder.button(text=f"📁 {item.title}", callback_data=f"show_folder_{item.id}")
+            is_4k = getattr(item, 'is_4k', False)
+            title = f"📁 {item.title}{' 🌟' if is_4k else ''}"
+            builder.button(text=title, callback_data=f"show_folder_{item.id}")
         else:
             is_4k = getattr(item, 'is_4k', False)
             title = f"{item.title}{' 🌟' if is_4k else ''}"

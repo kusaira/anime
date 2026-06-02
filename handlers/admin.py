@@ -1120,7 +1120,16 @@ async def add_folder_title(message: Message, state: FSMContext):
 @router.message(AdminAddFolder.waiting_for_description)
 async def add_folder_desc(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
-    await message.answer("Отправьте постер (фото) для папки:")
+    await message.answer("Выберите качество для этой папки:", reply_markup=get_quality_keyboard())
+    await state.set_state(AdminAddFolder.waiting_for_quality)
+
+@router.message(AdminAddFolder.waiting_for_quality)
+async def add_folder_quality(message: Message, state: FSMContext):
+    if message.text not in ["Обычное (1080p)", "4K"]:
+        return await message.answer("Пожалуйста, используйте кнопки.")
+    is_4k = message.text == "4K"
+    await state.update_data(is_4k=is_4k)
+    await message.answer("Отправьте постер (фото) для папки:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddFolder.waiting_for_photo)
 
 @router.message(AdminAddFolder.waiting_for_photo, F.photo)
@@ -1133,8 +1142,8 @@ async def add_folder_photo(message: Message, state: FSMContext, session: AsyncSe
     
     data = await state.get_data()
     photo_file_id = message.photo[-1].file_id
-    folder = await add_folder(session, data['title'], data['description'], photo_file_id)
-    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> создал папку <b>{folder.title}</b> (ID {folder.id})")
+    folder = await add_folder(session, data['title'], data['description'], photo_file_id, data.get('is_4k', False))
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> создал папку <b>{folder.title}</b> (ID {folder.id}, 4K: {folder.is_4k})")
     await message.answer(f"Папка '{folder.title}' создана! ID: {folder.id}", reply_markup=get_admin_menu())
     await state.clear()
 

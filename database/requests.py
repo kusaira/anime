@@ -285,8 +285,8 @@ async def get_user_history_for_anime(session: AsyncSession, user_id: int, anime_
 
 # --- Folders ---
 
-async def add_folder(session: AsyncSession, title: str, description: str, photo_file_id: str):
-    folder = Folder(title=title, description=description, photo_file_id=photo_file_id)
+async def add_folder(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False):
+    folder = Folder(title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k)
     session.add(folder)
     await session.commit()
     await session.refresh(folder)

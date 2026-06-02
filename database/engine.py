@@ -16,4 +16,9 @@ async def init_db():
             await conn.execute(text("UPDATE anime SET display_id = CAST(id AS VARCHAR) WHERE display_id IS NULL;"))
         except Exception:
             pass
+            
+        try:
+            await conn.execute(text("ALTER TABLE folders ADD COLUMN is_4k BOOLEAN DEFAULT 0;"))
+        except Exception:
+            pass
 

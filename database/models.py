@@ -57,6 +57,7 @@ class Folder(Base):
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(String)
     photo_file_id: Mapped[str] = mapped_column(String)
+    is_4k: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class FolderItem(Base):
     __tablename__ = 'folder_items'
