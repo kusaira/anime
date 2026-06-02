@@ -97,17 +97,6 @@ async def process_favorite(callback: CallbackQuery, session: AsyncSession):
 async def process_watch(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     anime_id = int(callback.data.split("_")[1])
     
-    anime = await get_anime(session, anime_id)
-    if anime and getattr(anime, 'is_4k', False):
-        user = await get_user(session, callback.from_user.id)
-        now = datetime.utcnow()
-        if not user or not user.is_premium or (user.premium_until and user.premium_until < now):
-            return await callback.message.answer(
-                "🚫 <b>Доступ запрещен!</b>\n\nЭтот тайтл загружен в 4К качестве и доступен только пользователям с Premium подпиской.",
-                reply_markup=get_payment_keyboard(),
-                parse_mode="HTML"
-            )
-
     from database.requests import get_voiceovers
     voiceovers = await get_voiceovers(session, anime_id)
     
@@ -154,6 +143,21 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     if not episode:
         return await callback.answer("Ошибка: серия не найдена.", show_alert=True)
     
+    anime = await get_anime(session, anime_id)
+    if anime and getattr(anime, 'is_4k', False):
+        user = await get_user(session, callback.from_user.id)
+        now = datetime.utcnow()
+        is_premium = user and user.is_premium and (not user.premium_until or user.premium_until >= now)
+        is_movie = getattr(anime, 'display_id', '') and str(getattr(anime, 'display_id', '')).endswith('_3')
+        is_free_preview = (not is_movie) and ep_num == 1
+        
+        if not is_premium and not is_free_preview:
+            if is_movie:
+                text = "🚫 <b>Доступ запрещен!</b>\n\nЭтот фильм загружен в 4К качестве и доступен только пользователям с Premium подпиской."
+            else:
+                text = "🚫 <b>Доступ запрещен!</b>\n\nСмотреть серии в 4К (начиная со второй) могут только пользователи с Premium подпиской.\n<i>(Первая серия доступна бесплатно для оценки качества!)</i>"
+            return await callback.message.answer(text, reply_markup=get_payment_keyboard(), parse_mode="HTML")
+
     # Удаляем только предыдущее меню, видео оставляем
     await delete_previous_menu(callback, state)
     
