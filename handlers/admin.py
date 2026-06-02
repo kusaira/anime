@@ -1125,9 +1125,9 @@ async def add_folder_desc(message: Message, state: FSMContext):
 
 @router.message(AdminAddFolder.waiting_for_quality)
 async def add_folder_quality(message: Message, state: FSMContext):
-    if message.text not in ["Обычное (1080p)", "4K"]:
+    if message.text not in ["1080p (Обычное)", "4K (Высокое)"]:
         return await message.answer("Пожалуйста, используйте кнопки.")
-    is_4k = message.text == "4K"
+    is_4k = message.text == "4K (Высокое)"
     await state.update_data(is_4k=is_4k)
     await message.answer("Отправьте постер (фото) для папки:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddFolder.waiting_for_photo)
