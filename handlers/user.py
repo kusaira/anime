@@ -118,7 +118,8 @@ async def show_folder_card(callback: CallbackQuery, session: AsyncSession, state
             photo=folder.photo_file_id,
             caption=text,
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
+            protect_content=True
         )
     else:
         msg = await callback.message.answer(

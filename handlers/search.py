@@ -68,7 +68,8 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
             photo=anime.photo_file_id,
             caption=f"🎬 {quality_tag}<b>{anime.title}</b>\n\n{anime.description}",
             reply_markup=get_anime_keyboard(anime.id, is_fav),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            protect_content=True
         )
         await save_menu_msg(msg.message_id, state)
     else:
