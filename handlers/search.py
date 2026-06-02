@@ -153,8 +153,7 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
     if not episode:
         return await callback.answer("Ошибка: серия не найдена.", show_alert=True)
     
-    # Удаляем предыдущее видео и меню
-    await delete_previous_video(callback, state)
+    # Удаляем только предыдущее меню, видео оставляем
     await delete_previous_menu(callback, state)
     
     caption = f"Серия {ep_num}"
@@ -162,7 +161,6 @@ async def process_episode(callback: CallbackQuery, session: AsyncSession, state:
         caption += f"\n\n{episode.description}"
         
     vid_msg = await callback.message.answer_video(video=episode.tg_file_id, caption=caption, protect_content=True)
-    await save_video_msg(vid_msg.message_id, state)
     
     # Сохраняем текущую серию для быстрого редактирования
     await state.update_data(viewing_episode_id=episode.id)
