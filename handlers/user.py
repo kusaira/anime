@@ -140,13 +140,14 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession, state:
     
     title = html.escape(anime.title)
     desc = html.escape(anime.description) if anime.description else "Нет описания."
-    caption = f"🎬 <b>{title}</b>\n\n{desc}"
+    quality_tag = "🌟 " if getattr(anime, 'is_4k', False) else ""
+    caption = f"🎬 {quality_tag}<b>{title}</b>\n\n{desc}"
     
     # Ограничение Telegram на длину caption для фото — 1024 символа
     if len(caption) > 1024:
         # 1024 - 3 (для "...") = 1021
-        allowed_len = 1021 - len(f"🎬 <b>{title}</b>\n\n")
-        caption = f"🎬 <b>{title}</b>\n\n{desc[:allowed_len]}..."
+        allowed_len = 1021 - len(f"🎬 {quality_tag}<b>{title}</b>\n\n")
+        caption = f"🎬 {quality_tag}<b>{title}</b>\n\n{desc[:allowed_len]}..."
     
     await delete_previous_menu(callback, state)
     msg = await callback.message.answer_photo(
