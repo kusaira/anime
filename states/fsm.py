@@ -82,3 +82,9 @@ class AdminMassUpload(StatesGroup):
 
 class AdminMassEditEpisodeDesc(StatesGroup):
     waiting_for_data = State()
+
+class AdminCopyDescriptions(StatesGroup):
+    waiting_for_source_anime = State()
+    waiting_for_source_voiceover = State()
+    waiting_for_dest_anime = State()
+    waiting_for_dest_voiceover = State()

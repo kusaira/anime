@@ -1456,3 +1456,132 @@ async def clear_logs_cmd(message: Message, bot: Bot):
             pass
             
     await status_msg.edit_text(f"✅ Сканирование завершено.\nУспешно удалено логов об ошибках: {deleted_count}")
+
+# --- Копирование описаний серий ---
+@router.message(F.text == "Скопировать описания серий")
+async def copy_desc_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите кастомный ID аниме <b>ИСТОЧНИКА</b> (откуда копировать):", reply_markup=get_cancel_menu(), parse_mode="HTML")
+    await state.set_state(AdminCopyDescriptions.waiting_for_source_anime)
+
+@router.message(AdminCopyDescriptions.waiting_for_source_anime)
+async def copy_desc_source_anime(message: Message, state: FSMContext, session: AsyncSession):
+    from database.requests import get_anime_by_display_id, get_voiceovers
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме не найдено. Проверьте ID.")
+        
+    await state.update_data(source_anime_id=anime.id)
+    
+    vos = await get_voiceovers(session, anime.id)
+    if not vos:
+        text = "У этого аниме нет озвучек."
+    else:
+        text = "Доступные озвучки ИСТОЧНИКА:\n" + "\n".join([f"<code>{v.id}</code>. {html.escape(v.name)}" for v in vos])
+        
+    await message.answer(text + "\n\nОтправьте ID озвучки ИСТОЧНИКА (или отправьте тире '-', если описания у серий без озвучки):", parse_mode="HTML")
+    await state.set_state(AdminCopyDescriptions.waiting_for_source_voiceover)
+
+@router.message(AdminCopyDescriptions.waiting_for_source_voiceover)
+async def copy_desc_source_vo(message: Message, state: FSMContext, session: AsyncSession):
+    vo_input = message.text.strip()
+    if vo_input == "-":
+        await state.update_data(source_voiceover_id=None)
+    else:
+        if not vo_input.isdigit():
+            return await message.answer("Пожалуйста, введите числовой ID озвучки или '-'.")
+        from database.requests import get_voiceover
+        vo = await get_voiceover(session, int(vo_input))
+        if not vo:
+            return await message.answer("Озвучка не найдена. Попробуйте еще раз.")
+        await state.update_data(source_voiceover_id=vo.id)
+        
+    from database.requests import get_all_anime
+    animes = await get_all_anime(session)
+    text = "Доступные аниме:\n" + "\n".join([f"<code>{a.display_id}</code>. {html.escape(a.title)}{' 🌟' if getattr(a, 'is_4k', False) else ''}" for a in animes])
+    await message.answer(text + "\n\nВведите кастомный ID аниме <b>НАЗНАЧЕНИЯ</b> (куда копировать):", parse_mode="HTML")
+    await state.set_state(AdminCopyDescriptions.waiting_for_dest_anime)
+
+@router.message(AdminCopyDescriptions.waiting_for_dest_anime)
+async def copy_desc_dest_anime(message: Message, state: FSMContext, session: AsyncSession):
+    from database.requests import get_anime_by_display_id, get_voiceovers
+    display_id = message.text.strip()
+    anime = await get_anime_by_display_id(session, display_id)
+    if not anime:
+        return await message.answer("Аниме не найдено. Проверьте ID.")
+        
+    await state.update_data(dest_anime_id=anime.id)
+    
+    vos = await get_voiceovers(session, anime.id)
+    if not vos:
+        text = "У этого аниме нет озвучек."
+    else:
+        text = "Доступные озвучки НАЗНАЧЕНИЯ:\n" + "\n".join([f"<code>{v.id}</code>. {html.escape(v.name)}" for v in vos])
+        
+    await message.answer(text + "\n\nОтправьте ID озвучки НАЗНАЧЕНИЯ (или отправьте тире '-', если копировать в серии без озвучки):", parse_mode="HTML")
+    await state.set_state(AdminCopyDescriptions.waiting_for_dest_voiceover)
+
+@router.message(AdminCopyDescriptions.waiting_for_dest_voiceover)
+async def copy_desc_execute(message: Message, state: FSMContext, session: AsyncSession):
+    vo_input = message.text.strip()
+    if vo_input == "-":
+        dest_voiceover_id = None
+    else:
+        if not vo_input.isdigit():
+            return await message.answer("Пожалуйста, введите числовой ID озвучки или '-'.")
+        from database.requests import get_voiceover
+        vo = await get_voiceover(session, int(vo_input))
+        if not vo:
+            return await message.answer("Озвучка не найдена. Попробуйте еще раз.")
+        dest_voiceover_id = vo.id
+        
+    data = await state.get_data()
+    source_anime_id = data['source_anime_id']
+    source_voiceover_id = data.get('source_voiceover_id')
+    dest_anime_id = data['dest_anime_id']
+    
+    from database.models import Episode
+    from sqlalchemy import select
+    
+    # 1. Получаем все серии источника
+    if source_voiceover_id is None:
+        source_query = select(Episode).where(Episode.anime_id == source_anime_id, Episode.voiceover_id.is_(None))
+    else:
+        source_query = select(Episode).where(Episode.anime_id == source_anime_id, Episode.voiceover_id == source_voiceover_id)
+        
+    source_result = await session.execute(source_query)
+    source_episodes = source_result.scalars().all()
+    
+    desc_map = {}
+    for ep in source_episodes:
+        if ep.description:
+            desc_map[ep.episode_number] = ep.description
+            
+    if not desc_map:
+        await state.clear()
+        return await message.answer("❌ У источника нет серий с описаниями для копирования.", reply_markup=get_admin_menu())
+        
+    # 2. Получаем все серии назначения
+    if dest_voiceover_id is None:
+        dest_query = select(Episode).where(Episode.anime_id == dest_anime_id, Episode.voiceover_id.is_(None))
+    else:
+        dest_query = select(Episode).where(Episode.anime_id == dest_anime_id, Episode.voiceover_id == dest_voiceover_id)
+        
+    dest_result = await session.execute(dest_query)
+    dest_episodes = dest_result.scalars().all()
+    
+    updated_count = 0
+    for ep in dest_episodes:
+        if ep.episode_number in desc_map:
+            ep.description = desc_map[ep.episode_number]
+            updated_count += 1
+            
+    await session.commit()
+    
+    await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> скопировал {updated_count} описаний.")
+    await message.answer(f"✅ Успешно скопировано описаний: {updated_count}.", reply_markup=get_admin_menu())
+    await state.clear()
