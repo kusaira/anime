@@ -62,11 +62,12 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         is_fav = any(f.id == anime.id for f in favs) if favs else False
         
         quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
+        movie_tag = "🎥 " if getattr(anime, 'display_id', '') and str(getattr(anime, 'display_id', '')).endswith('_3') else ""
         
         await delete_previous_menu(message, state)
         msg = await message.answer_photo(
             photo=anime.photo_file_id,
-            caption=f"🎬 {quality_tag}<b>{anime.title}</b>\n\n{anime.description}",
+            caption=f"🎬 {quality_tag}{movie_tag}<b>{anime.title}</b>\n\n{anime.description}",
             reply_markup=get_anime_keyboard(anime.id, is_fav),
             parse_mode="HTML",
             protect_content=True

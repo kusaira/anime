@@ -314,7 +314,8 @@ async def admin_list_anime(message: Message, session: AsyncSession):
         folder = await get_folder_for_anime(session, a.id)
         folder_text = f" (Папка <code>{folder.id}</code>)" if folder else " (Без папки)"
         star = "💎 " if getattr(a, 'is_4k', False) else ""
-        text += f"<code>{a.display_id}</code>. {star}{html.escape(a.title)}{folder_text}\n"
+        movie = '🎥 ' if getattr(a, 'display_id', '') and str(getattr(a, 'display_id', '')).endswith('_3') else ''
+        text += f"<code>{a.display_id}</code>. {star}{movie}{html.escape(a.title)}{folder_text}\n"
     
     await message.answer(text, parse_mode="HTML")
 
@@ -1007,7 +1008,8 @@ async def mass_upload_start(message: Message, state: FSMContext, session: AsyncS
     for a in animes:
         safe_title = html.escape(str(a.title))
         star = '💎 ' if getattr(a, 'is_4k', False) else ''
-        line = f"<code>{a.display_id}</code>. {star}{safe_title}\n"
+        movie = '🎥 ' if getattr(a, 'display_id', '') and str(getattr(a, 'display_id', '')).endswith('_3') else ''
+        line = f"<code>{a.display_id}</code>. {star}{movie}{safe_title}\n"
         if len(text) + len(line) > 3800:
             await message.answer(text, parse_mode="HTML")
             text = ""
