@@ -21,7 +21,9 @@ def get_catalog_keyboard(items: list):
         if type(item).__name__ == "Folder":
             builder.button(text=f"📁 {item.title}", callback_data=f"show_folder_{item.id}")
         else:
-            builder.button(text=item.title, callback_data=f"show_anime_{item.id}")
+            is_4k = getattr(item, 'is_4k', False)
+            title = f"{item.title}{' 🌟' if is_4k else ''}"
+            builder.button(text=title, callback_data=f"show_anime_{item.id}")
     builder.adjust(1) # По 1 кнопке в ряд (списком)
     return builder.as_markup()
 
