@@ -65,7 +65,7 @@ async def cmd_support(message: Message, state: FSMContext):
 
 @router.message(F.text == "📚 Каталог")
 async def show_catalog(message: Message, session: AsyncSession, state: FSMContext):
-    folders = await get_all_folders(session)
+    folders = await get_all_folders(session, is_4k=False)
     unlinked = await get_unlinked_anime(session, is_4k=False)
     items = list(folders) + list(unlinked)
     
@@ -84,7 +84,9 @@ from database.requests import get_4k_anime
 
 @router.message(F.text == "📺 Каталог 4К")
 async def show_4k_catalog(message: Message, session: AsyncSession, state: FSMContext):
-    items = await get_4k_anime(session)
+    folders = await get_all_folders(session, is_4k=True)
+    unlinked = await get_unlinked_anime(session, is_4k=True)
+    items = list(folders) + list(unlinked)
     
     if not items:
         return await message.answer("Каталог 4К пока пуст.")
