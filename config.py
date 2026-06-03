@@ -7,3 +7,4 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x]
 SUPERADMIN_IDS = [int(x) for x in os.getenv("SUPERADMIN_IDS", "5551306116").split(",") if x]
 DB_URL = os.getenv("DB_URL", "sqlite+aiosqlite:///database.db")
+PAYMENT_TOKEN = os.getenv("PAYMENT_TOKEN", "123456789:TEST:dummy")
