@@ -8,7 +8,7 @@ try:
     Authorize(
         client_id=CLIENT_ID,
         redirect_uri="https://google.com/",
-        scopes=[
+        scope=[
             "account-info", 
             "operation-history", 
             "operation-details", 
