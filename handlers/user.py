@@ -45,11 +45,11 @@ async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext
             
     text = (
         "😔 <b>У вас нет активной подписки.</b>\n\n"
-        "Для оформления подписки и получения доступа к эксклюзивным "
-        "функциям, напишите в саппорт: https://t.me/Kusaira_anime?direct"
+        "Оформите Premium-подписку, чтобы получить эксклюзивный доступ "
+        "ко всем 4K релизам и фильмам без ограничений!"
     )
     await delete_previous_menu(message, state)
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text, parse_mode="HTML", reply_markup=get_payment_keyboard())
 
 @router.message(F.text == "🆘 Поддержка")
 async def cmd_support(message: Message, state: FSMContext):
