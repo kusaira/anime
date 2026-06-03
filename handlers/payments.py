@@ -32,14 +32,17 @@ async def process_payment_invoice(callback: CallbackQuery):
     # Генерация уникального label для платежа
     label = f"{callback.from_user.id}_{int(datetime.utcnow().timestamp())}"
     
-    quickpay = Quickpay(
-        receiver=YOOMONEY_RECEIVER,
-        quickpay_form="shop",
-        targets="Premium-подписка на 30 дней",
-        paymentType="SB",
-        sum=150,
-        label=label
-    )
+    import urllib.parse
+    base_url = "https://yoomoney.ru/quickpay/confirm"
+    params = {
+        "receiver": YOOMONEY_RECEIVER,
+        "quickpay_form": "shop",
+        "targets": "Premium-подписка на 30 дней",
+        "paymentType": "SB",
+        "sum": 150,
+        "label": label
+    }
+    payment_url = f"{base_url}?{urllib.parse.urlencode(params)}"
     
     text = (
         "💎 <b>Оформление Premium-подписки</b>\n\n"
@@ -51,7 +54,7 @@ async def process_payment_invoice(callback: CallbackQuery):
     )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Перейти к оплате", url=quickpay.base_url)],
+        [InlineKeyboardButton(text="🔗 Перейти к оплате", url=payment_url)],
         [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{label}")]
     ])
     
