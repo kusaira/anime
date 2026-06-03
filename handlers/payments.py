@@ -112,8 +112,14 @@ async def process_check_payment(callback: CallbackQuery, session: AsyncSession):
             await callback.answer("Платеж еще не найден. Подождите пару минут и попробуйте снова.", show_alert=True)
             
     except Exception as e:
+        error_str = str(e).lower()
         logging.error(f"YooMoney check error: {e}")
-        await callback.answer("Ошибка при проверке платежа. Обратитесь в поддержку.", show_alert=True)
+        if "timed out" in error_str or "timeout" in error_str:
+            await callback.answer("⏳ Сервер ЮMoney долго отвечает. Подождите 5 секунд и нажмите кнопку еще раз!", show_alert=True)
+        elif "validation error for history" in error_str or "401" in error_str:
+            await callback.answer("❌ Ошибка авторизации кошелька (401). Токен ЮMoney недействителен. Обратитесь к админу.", show_alert=True)
+        else:
+            await callback.answer("Ошибка при проверке платежа. Обратитесь в поддержку.", show_alert=True)
 
 @router.callback_query(F.data == "dummy_pay_alert")
 async def dummy_pay_alert_handler(callback: CallbackQuery):
