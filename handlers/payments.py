@@ -39,7 +39,7 @@ async def process_payment_invoice(callback: CallbackQuery):
         "quickpay-form": "shop",
         "targets": "Premium-подписка на 30 дней",
         "paymentType": "SB",
-        "sum": 150,
+        "sum": 2,
         "label": label
     }
     payment_url = f"{base_url}?{urllib.parse.urlencode(params)}"
