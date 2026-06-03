@@ -11,12 +11,17 @@ router = Router()
 @router.callback_query(F.data == "buy_premium")
 async def process_payment_invoice(callback: CallbackQuery):
     if not PAYMENT_TOKEN or PAYMENT_TOKEN == "123456789:TEST:dummy":
-        text = (
-            "😔 <b>Оплата временно недоступна.</b>\n\n"
-            "Администратор еще не подключил платежный шлюз. "
-            "Напишите в саппорт: https://t.me/Kusaira_anime?direct"
+        # Визуальная заглушка (выглядит как инвойс)
+        stub_text = (
+            "💎 <b>Premium-подписка (1 месяц)</b>\n\n"
+            "Эксклюзивный доступ ко всем 4K релизам и фильмам без ограничений! Качество, от которого не оторвать глаз.\n\n"
+            "<i>(Это тестовая визуальная заглушка. Чтобы кнопка вела на реальную оплату, добавьте PAYMENT_TOKEN в .env)</i>"
         )
-        await callback.message.answer(text, parse_mode="HTML")
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        stub_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 150 ₽", callback_data="dummy_pay_alert")]
+        ])
+        await callback.message.answer(stub_text, parse_mode="HTML", reply_markup=stub_kb)
         return await callback.answer()
     
     # Отправляем инвойс
@@ -68,3 +73,7 @@ async def process_successful_payment(message: Message, session: AsyncSession):
                 await message.bot.send_message(admin_id, admin_text, parse_mode="HTML")
             except:
                 pass
+
+@router.callback_query(F.data == "dummy_pay_alert")
+async def dummy_pay_alert_handler(callback: CallbackQuery):
+    await callback.answer("Это визуальная заглушка! Добавьте PAYMENT_TOKEN в .env для реальной оплаты.", show_alert=True)
