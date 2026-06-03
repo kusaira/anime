@@ -33,10 +33,10 @@ async def process_payment_invoice(callback: CallbackQuery):
     label = f"{callback.from_user.id}_{int(datetime.utcnow().timestamp())}"
     
     import urllib.parse
-    base_url = "https://yoomoney.ru/quickpay/confirm"
+    base_url = "https://yoomoney.ru/quickpay/confirm.xml"
     params = {
         "receiver": YOOMONEY_RECEIVER,
-        "quickpay_form": "shop",
+        "quickpay-form": "shop",
         "targets": "Premium-подписка на 30 дней",
         "paymentType": "SB",
         "sum": 150,
