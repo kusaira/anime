@@ -17,12 +17,7 @@ async def migrate_display_ids():
             print("Column notified_expiration might already exist:", e)
             
     async with AsyncSessionLocal() as session:
-        result = await session.execute(text("SELECT id FROM anime;"))
-        rows = result.fetchall()
-        for row in rows:
-            anime_id = row[0]
-            await session.execute(text("UPDATE anime SET display_id = :d_id WHERE id = :a_id"), {"d_id": str(anime_id), "a_id": anime_id})
-        await session.commit()
+        # Убрал перезапись display_id, чтобы не затирать кастомные ID
         print("Migrated successfully!")
 
 if __name__ == "__main__":
