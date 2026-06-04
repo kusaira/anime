@@ -9,9 +9,13 @@ from config import YOOMONEY_TOKEN, YOOMONEY_RECEIVER, SUPERADMIN_IDS
 
 try:
     from yoomoney import Quickpay, Client
-except ImportError:
+    yoomoney_error = None
+except Exception as e:
     Quickpay = None
     Client = None
+    yoomoney_error = str(e)
+    import logging
+    logging.error(f"Failed to import yoomoney: {e}")
 
 router = Router()
 
@@ -22,7 +26,7 @@ async def process_payment_invoice(callback: CallbackQuery):
     if not YOOMONEY_RECEIVER:
         return await callback.answer("Ошибка: YOOMONEY_RECEIVER не найден в .env", show_alert=True)
     if not Quickpay:
-        return await callback.answer("Ошибка: библиотека yoomoney не установлена! Сделай pip install -r requirements.txt", show_alert=True)
+        return await callback.answer(f"Ошибка загрузки yoomoney: {yoomoney_error}", show_alert=True)
     
     # Генерация уникального label для платежа
     label = f"{callback.from_user.id}_{int(datetime.utcnow().timestamp())}"
