@@ -25,8 +25,6 @@ async def process_payment_invoice(callback: CallbackQuery):
         return await callback.answer("Ошибка: YOOMONEY_TOKEN не найден в .env", show_alert=True)
     if not YOOMONEY_RECEIVER:
         return await callback.answer("Ошибка: YOOMONEY_RECEIVER не найден в .env", show_alert=True)
-    if not Quickpay:
-        return await callback.answer(f"Ошибка загрузки yoomoney: {yoomoney_error}", show_alert=True)
     
     # Генерация уникального label для платежа
     label = f"{callback.from_user.id}_{int(datetime.utcnow().timestamp())}"
@@ -62,8 +60,10 @@ async def process_payment_invoice(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("check_pay_"))
 async def process_check_payment(callback: CallbackQuery, session: AsyncSession):
-    if not YOOMONEY_TOKEN or not Client:
-        return await callback.answer("Ошибка: платежный шлюз не настроен.", show_alert=True)
+    if not YOOMONEY_TOKEN:
+        return await callback.answer("Ошибка: платежный шлюз не настроен (нет токена).", show_alert=True)
+    if not Client:
+        return await callback.answer(f"Ошибка загрузки yoomoney: {yoomoney_error}", show_alert=True)
         
     label = callback.data.replace("check_pay_", "")
     
