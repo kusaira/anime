@@ -17,17 +17,12 @@ router = Router()
 
 @router.callback_query(F.data == "buy_premium")
 async def process_payment_invoice(callback: CallbackQuery):
-    if not YOOMONEY_TOKEN or not YOOMONEY_RECEIVER or not Quickpay:
-        stub_text = (
-            "💎 <b>Premium-подписка (1 месяц)</b>\n\n"
-            "Эксклюзивный доступ ко всем 4K релизам и фильмам без ограничений! Качество, от которого не оторвать глаз.\n\n"
-            "<i>(Это визуальная заглушка ЮMoney. Добавьте YOOMONEY_TOKEN и YOOMONEY_RECEIVER в .env для реальной оплаты)</i>"
-        )
-        stub_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 150 ₽", callback_data="dummy_pay_alert")]
-        ])
-        await callback.message.answer(stub_text, parse_mode="HTML", reply_markup=stub_kb)
-        return await callback.answer()
+    if not YOOMONEY_TOKEN:
+        return await callback.answer("Ошибка: YOOMONEY_TOKEN не найден в .env", show_alert=True)
+    if not YOOMONEY_RECEIVER:
+        return await callback.answer("Ошибка: YOOMONEY_RECEIVER не найден в .env", show_alert=True)
+    if not Quickpay:
+        return await callback.answer("Ошибка: библиотека yoomoney не установлена! Сделай pip install -r requirements.txt", show_alert=True)
     
     # Генерация уникального label для платежа
     label = f"{callback.from_user.id}_{int(datetime.utcnow().timestamp())}"
