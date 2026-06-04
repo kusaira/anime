@@ -91,7 +91,11 @@ async def process_favorite(callback: CallbackQuery, session: AsyncSession):
     await callback.answer(text)
     
     # Обновляем кнопку
-    await callback.message.edit_reply_markup(reply_markup=get_anime_keyboard(anime_id, is_fav))
+    from aiogram.exceptions import TelegramBadRequest
+    try:
+        await callback.message.edit_reply_markup(reply_markup=get_anime_keyboard(anime_id, is_fav))
+    except TelegramBadRequest:
+        pass
 
 @router.callback_query(F.data.startswith("watch_"))
 async def process_watch(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
