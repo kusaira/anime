@@ -95,3 +95,14 @@ def get_folder_animes_keyboard(folder_id: int, animes: list):
         builder.button(text=f"❌ {anime.title}", callback_data=f"unlink_{folder_id}_{anime.id}")
     builder.adjust(1)
     return builder.as_markup()
+
+def get_admin_voiceovers_inline_keyboard():
+    builder = InlineKeyboardBuilder()
+    dubs = ["AniLibria", "Studio Band", "DEEP", "Dream Cast", "JAM", "AniDUB", 
+            "Reanimedia", "SHIZA Project", "MC Entertainment", "ТО Дубляжная", 
+            "AniStar", "AnimeVost", "Animedia", "AniFilm", "Onibaku", 
+            "KANSAI Studio", "СВ-Дубль", "Crunchyroll", "-"]
+    for d in dubs:
+        builder.button(text=d, callback_data=f"adminvo_{d}")
+    builder.adjust(3)
+    return builder.as_markup()

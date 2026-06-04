@@ -10,8 +10,8 @@ import datetime
 from config import ADMIN_IDS, SUPERADMIN_IDS
 from states.fsm import AdminAddAnime, AdminAddEpisode, AdminDeleteAnime, AdminDeleteEpisode, AdminAddFolder, AdminLinkAnime, AdminDeleteFolder, AdminListEpisodes, AdminEditAnime, AdminMassUpload, AdminEditFolder, AdminUnlinkAnime, AdminEditEpisode, AdminEditVoiceover, AdminDeleteVoiceover, AdminQuickEditEpisode, AdminMassEditEpisodeDesc, AdminCopyDescriptions
 from database.requests import add_anime, add_episode, get_all_anime, get_all_users, delete_anime, delete_episode, get_anime_by_title, add_folder, get_all_folders, link_anime_to_folder, get_folder_for_anime, delete_folder, get_episodes, get_anime, update_anime, update_folder, unlink_anime_from_folder, get_folder, get_anime_in_folder, get_episode, get_anime_by_display_id
-from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu, get_admin_anime_menu, get_admin_episodes_menu, get_admin_folders_menu, get_edit_episode_menu, get_voiceovers_keyboard
-from keyboards.inline import get_folder_animes_keyboard
+from keyboards.reply import get_admin_menu, get_main_menu, get_cancel_menu, get_quality_keyboard, get_finish_upload_menu, get_admin_anime_menu, get_admin_episodes_menu, get_admin_folders_menu, get_edit_episode_menu
+from keyboards.inline import get_folder_animes_keyboard, get_admin_voiceovers_inline_keyboard
 
 router = Router()
 
@@ -481,7 +481,8 @@ async def add_episode_num(message: Message, state: FSMContext):
 @router.message(AdminAddEpisode.waiting_for_episode_description)
 async def add_episode_desc(message: Message, state: FSMContext):
     await state.update_data(episode_description=message.text)
-    await message.answer("Отправьте название озвучки (выберите из меню или введите вручную, для пропуска отправьте '-'):", reply_markup=get_voiceovers_keyboard())
+    await message.answer("Выберите озвучку из списка ниже:", reply_markup=get_admin_voiceovers_inline_keyboard())
+    await message.answer("Или введите название вручную (для пропуска отправьте '-'):", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddEpisode.waiting_for_voiceover_name)
 
 @router.message(AdminAddEpisode.waiting_for_voiceover_name)
@@ -489,6 +490,53 @@ async def add_episode_voiceover(message: Message, state: FSMContext):
     await state.update_data(voiceover_name=message.text.strip())
     await message.answer("Отправьте или перешлите видео-файл серии:", reply_markup=get_cancel_menu())
     await state.set_state(AdminAddEpisode.waiting_for_video)
+
+@router.callback_query(F.data.startswith("adminvo_"))
+async def process_admin_voiceover_inline(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    vo_name = callback.data.replace("adminvo_", "")
+    current_state = await state.get_state()
+    
+    if current_state == AdminAddEpisode.waiting_for_voiceover_name.state:
+        await state.update_data(voiceover_name=vo_name)
+        await callback.message.edit_text(f"✅ Выбрана озвучка: <b>{vo_name}</b>", parse_mode="HTML")
+        await callback.message.answer("Отправьте или перешлите видео-файл серии:", reply_markup=get_cancel_menu())
+        await state.set_state(AdminAddEpisode.waiting_for_video)
+        await callback.answer()
+        
+    elif current_state == AdminMassUpload.waiting_for_voiceover_name.state:
+        from database.requests import get_or_create_voiceover
+        import html
+        from database.requests import get_anime
+        data = await state.get_data()
+        
+        vo_id = None
+        if vo_name != "-":
+            vo = await get_or_create_voiceover(session, data['anime_id'], vo_name)
+            vo_id = vo.id
+            display_vo = html.escape(vo.name)
+        else:
+            display_vo = "Без озвучки"
+            
+        await state.update_data(voiceover_id=vo_id, voiceover_name=vo_name)
+        anime = await get_anime(session, data['anime_id'])
+        
+        await callback.message.edit_text(f"✅ Выбрана озвучка: <b>{display_vo}</b>", parse_mode="HTML")
+        
+        msg_text = (
+            f"✅ Выбрано аниме: <b>{anime.title}</b>\n"
+            f"🎙 Озвучка: <b>{display_vo}</b>\n\n"
+            "Теперь отправляйте видеофайлы или альбомы видео. "
+            "Бот автоматически извлечет номер серии из названия файла "
+            "(например: <code>1.mp4</code> или <code>серия 2.mp4</code>).\n\n"
+            "Обязательно отправляйте видео <b>с компьютера</b> или <b>как файл (без сжатия)</b>, "
+            "чтобы Telegram не переименовал их."
+        )
+        from keyboards.reply import get_finish_upload_menu
+        await callback.message.answer(msg_text, reply_markup=get_finish_upload_menu(), parse_mode="HTML")
+        await state.set_state(AdminMassUpload.waiting_for_videos)
+        await callback.answer()
+    else:
+        await callback.answer("Это действие сейчас недоступно.")
 
 @router.message(AdminAddEpisode.waiting_for_video, F.video)
 async def add_episode_video(message: Message, state: FSMContext, session: AsyncSession):
@@ -1031,7 +1079,8 @@ async def mass_upload_anime_id(message: Message, state: FSMContext, session: Asy
     
     await state.update_data(anime_id=anime.id)
     
-    await message.answer("Введите название озвучки (выберите из меню или введите вручную, для пропуска отправьте '-'):", reply_markup=get_voiceovers_keyboard())
+    await message.answer("Выберите озвучку из списка ниже:", reply_markup=get_admin_voiceovers_inline_keyboard())
+    await message.answer("Или введите название вручную (для пропуска отправьте '-'):", reply_markup=get_cancel_menu())
     await state.set_state(AdminMassUpload.waiting_for_voiceover_name)
 
 @router.message(AdminMassUpload.waiting_for_voiceover_name)

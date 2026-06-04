@@ -87,15 +87,4 @@ def get_finish_upload_menu():
     )
     return keyboard
 
-def get_voiceovers_keyboard():
-    keyboard = [
-        [KeyboardButton(text="AniLibria"), KeyboardButton(text="Studio Band"), KeyboardButton(text="DEEP")],
-        [KeyboardButton(text="Dream Cast"), KeyboardButton(text="JAM"), KeyboardButton(text="AniDUB")],
-        [KeyboardButton(text="Reanimedia"), KeyboardButton(text="SHIZA Project"), KeyboardButton(text="MC Entertainment")],
-        [KeyboardButton(text="ТО Дубляжная"), KeyboardButton(text="AniStar"), KeyboardButton(text="AnimeVost")],
-        [KeyboardButton(text="Animedia"), KeyboardButton(text="AniFilm"), KeyboardButton(text="Onibaku")],
-        [KeyboardButton(text="KANSAI Studio"), KeyboardButton(text="СВ-Дубль"), KeyboardButton(text="Crunchyroll")],
-        [KeyboardButton(text="-")],
-        [KeyboardButton(text="❌ Отмена")]
-    ]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
