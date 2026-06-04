@@ -440,10 +440,28 @@ async def add_anime_photo(message: Message, state: FSMContext, session: AsyncSes
         await state.update_data(last_media_group_id=message.media_group_id)
         return await message.answer("Пожалуйста, отправьте только ОДНУ фотографию. Альбомы не поддерживаются!")
         
-    data = await state.get_data()
     photo_file_id = message.photo[-1].file_id
+    await state.update_data(photo_file_id=photo_file_id)
     
-    anime = await add_anime(session, data['title'], data['description'], photo_file_id, data.get('is_4k', False), data.get('display_id'))
+    await message.answer("Введите скрытые теги (алиасы) для поиска через запятую (или отправьте '-', если их нет):", reply_markup=get_cancel_menu())
+    await state.set_state(AdminAddAnime.waiting_for_aliases)
+
+@router.message(AdminAddAnime.waiting_for_aliases)
+async def add_anime_aliases(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    aliases = None
+    if message.text.strip() != "-":
+        aliases = message.text.strip()
+        
+    anime = await add_anime(
+        session, 
+        data['title'], 
+        data['description'], 
+        data['photo_file_id'], 
+        data.get('is_4k', False), 
+        data.get('display_id'),
+        aliases=aliases
+    )
     await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> добавил аниме <b>{anime.title}</b> (ID <code>{anime.display_id}</code>)")
     await message.answer(f"Аниме '{anime.title}' успешно добавлено! ID: <code>{anime.display_id}</code>", reply_markup=get_admin_menu(), parse_mode="HTML")
     await state.clear()
@@ -792,13 +810,33 @@ async def edit_anime_photo(message: Message, state: FSMContext, session: AsyncSe
     else:
         return await message.answer("Пожалуйста, отправьте картинку или '-', чтобы оставить текущую.")
         
+    await state.update_data(new_photo_id=photo_id)
+    
+    data = await state.get_data()
+    anime = await get_anime(session, data['anime_id'])
+    
+    current_aliases = anime.aliases if anime.aliases else "Нет"
+    await message.answer(f"Текущие теги (алиасы): <b>{current_aliases}</b>\nВведите новые скрытые теги через запятую (или '-', чтобы оставить текущие, или 'удалить' чтобы очистить):", parse_mode="HTML")
+    await state.set_state(AdminEditAnime.waiting_for_new_aliases)
+
+@router.message(AdminEditAnime.waiting_for_new_aliases)
+async def edit_anime_aliases(message: Message, state: FSMContext, session: AsyncSession):
+    aliases_text = message.text.strip()
+    
     data = await state.get_data()
     anime_id = data['anime_id']
     title = data.get('new_title')
     desc = data.get('new_description')
     display_id = data.get('new_display_id')
+    photo_id = data.get('new_photo_id')
     
-    success = await update_anime(session, anime_id, title=title, description=desc, display_id=display_id, photo_file_id=photo_id)
+    aliases = None
+    if aliases_text.lower() == "удалить":
+        aliases = "-" # в update_anime "-" означает очистку
+    elif aliases_text != "-":
+        aliases = aliases_text
+        
+    success = await update_anime(session, anime_id, title=title, description=desc, display_id=display_id, photo_file_id=photo_id, aliases=aliases)
     if success:
         await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> отредактировал информацию аниме ID {anime_id}")
         await message.answer("Аниме успешно обновлено!", reply_markup=get_admin_menu())

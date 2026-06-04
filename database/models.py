@@ -20,6 +20,7 @@ class Anime(Base):
     title: Mapped[str] = mapped_column(String)
     display_id: Mapped[str] = mapped_column(String, unique=True, nullable=True)
     description: Mapped[str] = mapped_column(String)
+    aliases: Mapped[str] = mapped_column(String, nullable=True)
     photo_file_id: Mapped[str] = mapped_column(String)
     is_4k: Mapped[bool] = mapped_column(Boolean, default=False)
 

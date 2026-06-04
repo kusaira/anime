@@ -65,11 +65,11 @@ async def get_next_available_id(session: AsyncSession, model) -> int:
             break
     return next_id
 
-async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False, display_id: str = None):
+async def add_anime(session: AsyncSession, title: str, description: str, photo_file_id: str, is_4k: bool = False, display_id: str = None, aliases: str = None):
     new_id = await get_next_available_id(session, Anime)
     if not display_id:
         display_id = str(new_id)
-    anime = Anime(id=new_id, title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k, display_id=display_id)
+    anime = Anime(id=new_id, title=title, description=description, photo_file_id=photo_file_id, is_4k=is_4k, display_id=display_id, aliases=aliases)
     session.add(anime)
     await session.commit()
     await session.refresh(anime)
@@ -150,7 +150,7 @@ async def delete_anime(session: AsyncSession, anime_id: int):
         return True
     return False
 
-async def update_anime(session: AsyncSession, anime_id: int, title: str = None, description: str = None, display_id: str = None, photo_file_id: str = None):
+async def update_anime(session: AsyncSession, anime_id: int, title: str = None, description: str = None, display_id: str = None, photo_file_id: str = None, aliases: str = None):
     anime = await get_anime(session, anime_id)
     if not anime:
         return False
@@ -162,6 +162,11 @@ async def update_anime(session: AsyncSession, anime_id: int, title: str = None, 
         anime.display_id = display_id
     if photo_file_id:
         anime.photo_file_id = photo_file_id
+    if aliases is not None:
+        if aliases == "-":
+            anime.aliases = None
+        else:
+            anime.aliases = aliases
     await session.commit()
     return True
 
@@ -193,7 +198,15 @@ async def search_anime(session: AsyncSession, query: str):
     query_lower = query.lower()
     result = await session.execute(select(Anime))
     all_anime = result.scalars().all()
-    return [a for a in all_anime if a.title and query_lower in a.title.lower()]
+    
+    results = []
+    for a in all_anime:
+        if a.title and query_lower in a.title.lower():
+            results.append(a)
+        elif hasattr(a, 'aliases') and a.aliases and query_lower in a.aliases.lower():
+            results.append(a)
+            
+    return results
 
 async def get_anime(session: AsyncSession, anime_id: int):
     result = await session.execute(select(Anime).where(Anime.id == anime_id))
