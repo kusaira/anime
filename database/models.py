@@ -12,6 +12,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
     premium_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    notified_expiration: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class Anime(Base):
     __tablename__ = 'anime'

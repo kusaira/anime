@@ -29,7 +29,28 @@ async def set_premium(session: AsyncSession, telegram_id: int, premium_until: da
     await session.execute(
         update(User)
         .where(User.telegram_id == telegram_id)
-        .values(is_premium=True, premium_until=premium_until)
+        .values(is_premium=True, premium_until=premium_until, notified_expiration=False)
+    )
+    await session.commit()
+
+async def get_users_to_notify(session: AsyncSession):
+    from datetime import datetime, timedelta
+    target_time = datetime.utcnow() + timedelta(days=1)
+    
+    result = await session.execute(
+        select(User)
+        .where(User.is_premium == True)
+        .where(User.notified_expiration == False)
+        .where(User.premium_until != None)
+        .where(User.premium_until <= target_time)
+    )
+    return result.scalars().all()
+
+async def mark_user_notified(session: AsyncSession, telegram_id: int):
+    await session.execute(
+        update(User)
+        .where(User.telegram_id == telegram_id)
+        .values(notified_expiration=True)
     )
     await session.commit()
 

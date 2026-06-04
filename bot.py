@@ -51,6 +51,10 @@ async def main():
     
     # Запускаем бота
     try:
+        from scheduler import setup_scheduler
+        scheduler = setup_scheduler(bot)
+        scheduler.start()
+        
         logging.info("Starting bot")
         await dp.start_polling(bot)
     finally:

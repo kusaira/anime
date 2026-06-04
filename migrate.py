@@ -10,6 +10,12 @@ async def migrate_display_ids():
         except Exception as e:
             print("Column might already exist:", e)
             
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN notified_expiration BOOLEAN DEFAULT 0;"))
+            print("Column notified_expiration added.")
+        except Exception as e:
+            print("Column notified_expiration might already exist:", e)
+            
     async with AsyncSessionLocal() as session:
         result = await session.execute(text("SELECT id FROM anime;"))
         rows = result.fetchall()
