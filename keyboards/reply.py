@@ -54,7 +54,7 @@ def get_admin_folders_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Создать папку"), KeyboardButton(text="Редактировать папку")],
-            [KeyboardButton(text="Удалить папку")],
+            [KeyboardButton(text="Удалить папку"), KeyboardButton(text="Список залитых папок")],
             [KeyboardButton(text="↩️ Назад в админку")]
         ],
         resize_keyboard=True

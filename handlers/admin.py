@@ -1236,6 +1236,21 @@ async def add_folder_photo(message: Message, state: FSMContext, session: AsyncSe
     await message.answer(f"Папка '{folder.title}' создана! ID: {folder.id}", reply_markup=get_admin_menu())
     await state.clear()
 
+# --- Список папок ---
+@router.message(F.text == "Список залитых папок")
+async def list_folders(message: Message, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    folders = await get_all_folders(session)
+    if not folders:
+        return await message.answer("База данных папок пуста.", reply_markup=get_admin_menu())
+    
+    text = "📂 <b>Список всех залитых папок:</b>\n\n"
+    for f in folders:
+        diamond = "💎 " if getattr(f, 'is_4k', False) else ""
+        text += f"ID <code>{f.id}</code>: {diamond}{html.escape(f.title)}\n"
+        
+    await message.answer(text, reply_markup=get_admin_menu(), parse_mode="HTML")
+
 # --- Удаление папки ---
 @router.message(F.text == "Удалить папку")
 async def delete_folder_start(message: Message, state: FSMContext, session: AsyncSession):
@@ -1246,7 +1261,8 @@ async def delete_folder_start(message: Message, state: FSMContext, session: Asyn
     
     text = "📂 <b>Доступные папки:</b>\n"
     for f in folders:
-        text += f"ID {f.id}: {html.escape(f.title)}\n"
+        diamond = "💎 " if getattr(f, 'is_4k', False) else ""
+        text += f"ID {f.id}: {diamond}{html.escape(f.title)}\n"
         
     await message.answer(text + "\nВведите ID папки для удаления:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminDeleteFolder.waiting_for_folder_id)
@@ -1270,7 +1286,8 @@ async def edit_folder_start(message: Message, state: FSMContext, session: AsyncS
     folders = await get_all_folders(session)
     text = "Список папок:\n\n"
     for f in folders:
-        text += f"ID {f.id}: {html.escape(f.title)}\n"
+        diamond = "💎 " if getattr(f, 'is_4k', False) else ""
+        text += f"ID {f.id}: {diamond}{html.escape(f.title)}\n"
     text += "\nВведите ID папки для редактирования:"
     await message.answer(text, reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminEditFolder.waiting_for_folder_id)
@@ -1326,7 +1343,8 @@ async def unlink_anime_start(message: Message, state: FSMContext, session: Async
     folders = await get_all_folders(session)
     text = "Список папок:\n\n"
     for f in folders:
-        text += f"ID {f.id}: {html.escape(f.title)}\n"
+        diamond = "💎 " if getattr(f, 'is_4k', False) else ""
+        text += f"ID {f.id}: {diamond}{html.escape(f.title)}\n"
     text += "\nВведите ID папки, из которой нужно удалить аниме:"
     await message.answer(text, reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminUnlinkAnime.waiting_for_folder_id)
@@ -1383,7 +1401,7 @@ async def link_anime_start(message: Message, state: FSMContext, session: AsyncSe
     if not folders:
         return await message.answer("Сначала создайте хотя бы одну папку.")
     
-    text = "Доступные папки:\n" + "\n".join([f"<code>{f.id}</code>. {html.escape(f.title)}" for f in folders])
+    text = "Доступные папки:\n" + "\n".join([f"<code>{f.id}</code>. {'💎 ' if getattr(f, 'is_4k', False) else ''}{html.escape(f.title)}" for f in folders])
     await message.answer(text + "\n\nВведите ID папки:", reply_markup=get_cancel_menu(), parse_mode="HTML")
     await state.set_state(AdminLinkAnime.waiting_for_folder_id)
 
