@@ -110,6 +110,9 @@ async def show_folder_card(callback: CallbackQuery, session: AsyncSession, state
     keyboard = get_catalog_keyboard(anime_list) if anime_list else None
         
     text = f"📁 <b>{folder.title}</b>\n\n{folder.description}\n\nВыберите аниме:"
+    if len(text) > 1024:
+        allowed_len = 1021 - len(f"📁 <b>{folder.title}</b>\n\n\n\nВыберите аниме:")
+        text = f"📁 <b>{folder.title}</b>\n\n{folder.description[:allowed_len]}...\n\nВыберите аниме:"
     
     await delete_previous_menu(callback, state)
     
