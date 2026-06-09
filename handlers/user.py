@@ -109,10 +109,13 @@ async def show_folder_card(callback: CallbackQuery, session: AsyncSession, state
     anime_list = await get_anime_in_folder(session, folder_id)
     keyboard = get_catalog_keyboard(anime_list) if anime_list else None
         
-    text = f"📁 <b>{folder.title}</b>\n\n{folder.description}\n\nВыберите аниме:"
+    import html
+    title_esc = html.escape(folder.title)
+    desc_esc = html.escape(folder.description) if folder.description else ""
+    text = f"📁 <b>{title_esc}</b>\n\n{desc_esc}\n\nВыберите аниме:"
     if len(text) > 1024:
-        allowed_len = 1021 - len(f"📁 <b>{folder.title}</b>\n\n\n\nВыберите аниме:")
-        text = f"📁 <b>{folder.title}</b>\n\n{folder.description[:allowed_len]}...\n\nВыберите аниме:"
+        allowed_len = 1021 - len(f"📁 <b>{title_esc}</b>\n\n\n\nВыберите аниме:")
+        text = f"📁 <b>{title_esc}</b>\n\n{desc_esc[:allowed_len]}...\n\nВыберите аниме:"
     
     await delete_previous_menu(callback, state)
     
@@ -146,13 +149,14 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession, state:
     desc = html.escape(anime.description) if anime.description else "Нет описания."
     quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
     movie_tag = "🎥 " if getattr(anime, 'display_id', '') and str(getattr(anime, 'display_id', '')).endswith('_3') else ""
-    caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc}"
+    desc_esc = html.escape(desc) if desc else ""
+    caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc_esc}"
     
     # Ограничение Telegram на длину caption для фото — 1024 символа
     if len(caption) > 1024:
         # 1024 - 3 (для "...") = 1021
         allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n")
-        caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc[:allowed_len]}..."
+        caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc_esc[:allowed_len]}..."
     
     await delete_previous_menu(callback, state)
     msg = await callback.message.answer_photo(

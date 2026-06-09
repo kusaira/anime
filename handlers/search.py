@@ -64,10 +64,13 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
         movie_tag = "🎥 " if getattr(anime, 'display_id', '') and str(getattr(anime, 'display_id', '')).endswith('_3') else ""
         
-        caption = f"🎬 {quality_tag}{movie_tag}<b>{anime.title}</b>\n\n{anime.description}"
+        import html
+        title_esc = html.escape(anime.title)
+        desc_esc = html.escape(anime.description) if anime.description else ""
+        caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n{desc_esc}"
         if len(caption) > 1024:
-            allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{anime.title}</b>\n\n")
-            caption = f"🎬 {quality_tag}{movie_tag}<b>{anime.title}</b>\n\n{anime.description[:allowed_len]}..."
+            allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n")
+            caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n{desc_esc[:allowed_len]}..."
             
         await delete_previous_menu(message, state)
         msg = await message.answer_photo(

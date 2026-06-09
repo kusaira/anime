@@ -6,6 +6,7 @@ from config import BOT_TOKEN
 from database.engine import init_db, AsyncSessionLocal
 from middlewares.db_middleware import DbSessionMiddleware
 from middlewares.whitelist_middleware import WhitelistMiddleware
+from middlewares.throttling import ThrottlingMiddleware
 from handlers import user, search, payments, admin
 
 async def main():
@@ -22,6 +23,11 @@ async def main():
     
     # Подключаем middleware
     dp.update.middleware(DbSessionMiddleware(session_pool=AsyncSessionLocal))
+    
+    # Защита от спама (троттлинг)
+    dp.message.middleware(ThrottlingMiddleware(rate_limit=0.5))
+    dp.callback_query.middleware(ThrottlingMiddleware(rate_limit=0.5))
+    
     dp.message.middleware(WhitelistMiddleware())
     dp.callback_query.middleware(WhitelistMiddleware())
     
