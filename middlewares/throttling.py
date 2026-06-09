@@ -19,11 +19,19 @@ class ThrottlingMiddleware(BaseMiddleware):
     ) -> Any:
         user_id = None
         if isinstance(event, Message):
+            # Пропускаем альбомы, чтобы не ломать масс-загрузку (сообщения приходят одновременно)
+            if event.media_group_id:
+                return await handler(event, data)
             user_id = event.from_user.id
         elif isinstance(event, CallbackQuery):
             user_id = event.from_user.id
 
         if user_id is not None:
+            # Админов не ограничиваем, они часто грузят много файлов
+            from config import ADMIN_IDS, SUPERADMIN_IDS
+            if user_id in ADMIN_IDS or user_id in SUPERADMIN_IDS:
+                return await handler(event, data)
+                
             now = time.time()
             last_time = self.users.get(user_id, 0)
             
