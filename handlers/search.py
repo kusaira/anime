@@ -67,10 +67,13 @@ async def process_search(message: Message, state: FSMContext, session: AsyncSess
         import html
         title_esc = html.escape(anime.title)
         desc_esc = html.escape(anime.description) if anime.description else ""
-        caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n{desc_esc}"
+        caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n<pre>{desc_esc}</pre>"
+        
+        # Ограничение Telegram на длину caption для фото — 1024 символа
         if len(caption) > 1024:
-            allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n")
-            caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n{desc_esc[:allowed_len]}..."
+            # 1024 - 3 (для "...") = 1021
+            allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n<pre></pre>")
+            caption = f"🎬 {quality_tag}{movie_tag}<b>{title_esc}</b>\n\n<pre>{desc_esc[:allowed_len]}...</pre>"
             
         await delete_previous_menu(message, state)
         msg = await message.answer_photo(

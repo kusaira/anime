@@ -112,10 +112,10 @@ async def show_folder_card(callback: CallbackQuery, session: AsyncSession, state
     import html
     title_esc = html.escape(folder.title)
     desc_esc = html.escape(folder.description) if folder.description else ""
-    text = f"📁 <b>{title_esc}</b>\n\n{desc_esc}\n\nВыберите аниме:"
+    text = f"📁 <b>{title_esc}</b>\n\n<pre>{desc_esc}</pre>\n\nВыберите аниме:"
     if len(text) > 1024:
-        allowed_len = 1021 - len(f"📁 <b>{title_esc}</b>\n\n\n\nВыберите аниме:")
-        text = f"📁 <b>{title_esc}</b>\n\n{desc_esc[:allowed_len]}...\n\nВыберите аниме:"
+        allowed_len = 1021 - len(f"📁 <b>{title_esc}</b>\n\n<pre></pre>\n\nВыберите аниме:")
+        text = f"📁 <b>{title_esc}</b>\n\n<pre>{desc_esc[:allowed_len]}...</pre>\n\nВыберите аниме:"
     
     await delete_previous_menu(callback, state)
     
@@ -150,13 +150,13 @@ async def show_anime_card(callback: CallbackQuery, session: AsyncSession, state:
     quality_tag = "💎 " if getattr(anime, 'is_4k', False) else ""
     movie_tag = "🎥 " if getattr(anime, 'display_id', '') and str(getattr(anime, 'display_id', '')).endswith('_3') else ""
     desc_esc = html.escape(desc) if desc else ""
-    caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc_esc}"
+    caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n<pre>{desc_esc}</pre>"
     
     # Ограничение Telegram на длину caption для фото — 1024 символа
     if len(caption) > 1024:
         # 1024 - 3 (для "...") = 1021
-        allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n")
-        caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n{desc_esc[:allowed_len]}..."
+        allowed_len = 1021 - len(f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n<pre></pre>")
+        caption = f"🎬 {quality_tag}{movie_tag}<b>{title}</b>\n\n<pre>{desc_esc[:allowed_len]}...</pre>"
     
     await delete_previous_menu(callback, state)
     msg = await callback.message.answer_photo(
