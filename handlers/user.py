@@ -38,7 +38,7 @@ async def cmd_premium(message: Message, session: AsyncSession, state: FSMContext
             days_left = (user.premium_until - datetime.utcnow()).days
             text = f"✨ <b>Ваша премиум подписка активна!</b>\n\nОсталось дней: <b>{days_left}</b>"
             await delete_previous_menu(message, state)
-            return await message.answer(text, parse_mode="HTML")
+            return await message.answer(text, parse_mode="HTML", reply_markup=get_payment_keyboard(is_extend=True))
         else:
             user.is_premium = False
             await session.commit()

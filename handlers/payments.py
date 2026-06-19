@@ -95,7 +95,13 @@ async def process_promo_code(message: Message, state: FSMContext, session: Async
     
     if promo.discount_type == 'free_days':
         days = promo.discount_value
-        premium_until = datetime.utcnow() + timedelta(days=days)
+        from database.requests import get_user
+        user = await get_user(session, message.from_user.id)
+        if user and user.is_premium and user.premium_until and user.premium_until > datetime.utcnow():
+            premium_until = user.premium_until + timedelta(days=days)
+        else:
+            premium_until = datetime.utcnow() + timedelta(days=days)
+            
         await set_premium(session, message.from_user.id, premium_until)
         await message.answer(f"🎉 Промокод активирован! Вы получили <b>{days} дней</b> Premium-подписки бесплатно!", parse_mode="HTML")
         # Уведомляем админов
@@ -155,13 +161,18 @@ async def process_check_payment(callback: CallbackQuery, session: AsyncSession):
                     break
                     
         if is_paid:
-            from database.requests import get_settings
+            from database.requests import get_settings, get_user
             settings = await get_settings(session)
             duration = settings.premium_duration_days
             price = settings.premium_price
             
-            # Начисляем дни с текущего момента
-            premium_until = datetime.utcnow() + timedelta(days=duration)
+            # Начисляем дни с текущего момента или добавляем к существующей подписке
+            user = await get_user(session, callback.from_user.id)
+            if user and user.is_premium and user.premium_until and user.premium_until > datetime.utcnow():
+                premium_until = user.premium_until + timedelta(days=duration)
+            else:
+                premium_until = datetime.utcnow() + timedelta(days=duration)
+                
             await set_premium(session, callback.from_user.id, premium_until)
             
             text = (

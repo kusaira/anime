@@ -1,9 +1,10 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-def get_payment_keyboard():
+def get_payment_keyboard(is_extend: bool = False):
+    text = "🔄 Продлить подписку" if is_extend else "💎 Купить подписку"
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💎 Купить подписку", callback_data="buy_premium")]
+        [InlineKeyboardButton(text=text, callback_data="buy_premium")]
     ])
     return keyboard
 
