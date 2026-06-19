@@ -437,3 +437,63 @@ async def get_anime_by_display_id(session, display_id: str):
     from database.models import Anime
     result = await session.execute(select(Anime).where(Anime.display_id == str(display_id)))
     return result.scalars().first()
+
+from database.models import Settings, PromoCode, UserPromo
+
+async def get_settings(session: AsyncSession):
+    result = await session.execute(select(Settings))
+    settings = result.scalars().first()
+    if not settings:
+        settings = Settings(premium_price=150, premium_duration_days=30)
+        session.add(settings)
+        await session.commit()
+    return settings
+
+async def update_settings(session: AsyncSession, price: int = None, duration: int = None):
+    settings = await get_settings(session)
+    if price is not None:
+        settings.premium_price = price
+    if duration is not None:
+        settings.premium_duration_days = duration
+    await session.commit()
+    return settings
+
+async def create_promo_code(session: AsyncSession, code: str, discount_type: str, discount_value: int, max_uses: int):
+    promo = PromoCode(
+        code=code.upper(),
+        discount_type=discount_type,
+        discount_value=discount_value,
+        max_uses=max_uses,
+        uses_count=0
+    )
+    session.add(promo)
+    await session.commit()
+    return promo
+
+async def get_promo_code(session: AsyncSession, code: str):
+    result = await session.execute(select(PromoCode).where(PromoCode.code == code.upper()))
+    return result.scalars().first()
+
+async def get_all_promo_codes(session: AsyncSession):
+    result = await session.execute(select(PromoCode))
+    return result.scalars().all()
+
+async def delete_promo_code(session: AsyncSession, code: str):
+    promo = await get_promo_code(session, code)
+    if promo:
+        await session.delete(promo)
+        await session.commit()
+        return True
+    return False
+
+async def has_user_used_promo(session: AsyncSession, user_id: int, promo_id: int):
+    result = await session.execute(
+        select(UserPromo).where(UserPromo.user_id == user_id, UserPromo.promo_id == promo_id)
+    )
+    return result.scalars().first() is not None
+
+async def use_promo_code(session: AsyncSession, user_id: int, promo: PromoCode):
+    promo.uses_count += 1
+    user_promo = UserPromo(user_id=user_id, promo_id=promo.id)
+    session.add(user_promo)
+    await session.commit()

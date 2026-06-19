@@ -73,3 +73,24 @@ class WatchedEpisode(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'))
     anime_id: Mapped[int] = mapped_column(ForeignKey('anime.id', ondelete='CASCADE'))
     episode_number: Mapped[int] = mapped_column(Integer)
+
+class Settings(Base):
+    __tablename__ = 'settings'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    premium_price: Mapped[int] = mapped_column(Integer, default=150)
+    premium_duration_days: Mapped[int] = mapped_column(Integer, default=30)
+
+class PromoCode(Base):
+    __tablename__ = 'promo_codes'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String, unique=True)
+    discount_type: Mapped[str] = mapped_column(String) # 'discount' or 'free_days'
+    discount_value: Mapped[int] = mapped_column(Integer)
+    max_uses: Mapped[int] = mapped_column(Integer, default=1)
+    uses_count: Mapped[int] = mapped_column(Integer, default=0)
+
+class UserPromo(Base):
+    __tablename__ = 'user_promos'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'))
+    promo_id: Mapped[int] = mapped_column(ForeignKey('promo_codes.id', ondelete='CASCADE'))

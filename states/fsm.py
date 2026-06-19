@@ -91,3 +91,19 @@ class AdminCopyDescriptions(StatesGroup):
     waiting_for_source_voiceover = State()
     waiting_for_dest_anime = State()
     waiting_for_dest_voiceover = State()
+
+class AdminSettings(StatesGroup):
+    waiting_for_price = State()
+    waiting_for_duration = State()
+
+class AdminCreatePromo(StatesGroup):
+    waiting_for_code = State()
+    waiting_for_type = State()
+    waiting_for_value = State()
+    waiting_for_uses = State()
+
+class AdminDeletePromo(StatesGroup):
+    waiting_for_code = State()
+
+class UserUsePromo(StatesGroup):
+    waiting_for_code = State()

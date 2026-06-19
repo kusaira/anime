@@ -20,7 +20,8 @@ def get_admin_menu():
         keyboard=[
             [KeyboardButton(text="🎬 Управление Аниме"), KeyboardButton(text="📺 Управление Сериями")],
             [KeyboardButton(text="📁 Управление Папками"), KeyboardButton(text="👥 Список пользователей")],
-            [KeyboardButton(text="📥 Экспорт базы (CSV)"), KeyboardButton(text="🔙 В главное меню")]
+            [KeyboardButton(text="💳 Управление Оплатой"), KeyboardButton(text="📥 Экспорт базы (CSV)")],
+            [KeyboardButton(text="🔙 В главное меню")]
         ],
         resize_keyboard=True
     )
@@ -55,6 +56,17 @@ def get_admin_folders_menu():
         keyboard=[
             [KeyboardButton(text="Создать папку"), KeyboardButton(text="Редактировать папку")],
             [KeyboardButton(text="Удалить папку"), KeyboardButton(text="Список залитых папок")],
+            [KeyboardButton(text="↩️ Назад в админку")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_admin_payments_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Настройки подписки")],
+            [KeyboardButton(text="Создать промокод"), KeyboardButton(text="Удалить промокод")],
+            [KeyboardButton(text="Список промокодов")],
             [KeyboardButton(text="↩️ Назад в админку")]
         ],
         resize_keyboard=True

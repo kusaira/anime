@@ -1714,3 +1714,147 @@ async def copy_desc_execute(message: Message, state: FSMContext, session: AsyncS
     await send_admin_log(message.bot, f"Админ <code>{message.from_user.id}</code> скопировал {updated_count} описаний.")
     await message.answer(f"✅ Успешно скопировано описаний: {updated_count}.", reply_markup=get_admin_menu())
     await state.clear()
+
+# --- УПРАВЛЕНИЕ ОПЛАТОЙ И ПРОМОКОДАМИ ---
+from keyboards.reply import get_admin_payments_menu
+from states.fsm import AdminSettings, AdminCreatePromo, AdminDeletePromo
+
+@router.message(F.text == "💳 Управление Оплатой")
+async def admin_payments_menu(message: Message):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Управление подпиской и промокодами:", reply_markup=get_admin_payments_menu())
+
+@router.message(F.text == "Настройки подписки")
+async def admin_settings_start(message: Message, state: FSMContext, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    from database.requests import get_settings
+    settings = await get_settings(session)
+    await message.answer(
+        f"Текущая цена подписки: <b>{settings.premium_price} ₽</b>\n"
+        f"Длительность подписки: <b>{settings.premium_duration_days} дней</b>\n\n"
+        "Введите новую ЦЕНУ подписки в рублях (или отправьте '-', чтобы не менять):",
+        parse_mode="HTML"
+    )
+    await state.set_state(AdminSettings.waiting_for_price)
+
+@router.message(AdminSettings.waiting_for_price)
+async def admin_settings_price(message: Message, state: FSMContext):
+    if message.text != '-':
+        if not message.text.isdigit():
+            return await message.answer("Пожалуйста, введите число (или '-').")
+        await state.update_data(price=int(message.text))
+    await message.answer("Теперь введите новую ДЛИТЕЛЬНОСТЬ подписки в днях (или отправьте '-', чтобы не менять):")
+    await state.set_state(AdminSettings.waiting_for_duration)
+
+@router.message(AdminSettings.waiting_for_duration)
+async def admin_settings_duration(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    price = data.get('price')
+    duration = None
+    if message.text != '-':
+        if not message.text.isdigit():
+            return await message.answer("Пожалуйста, введите число (или '-').")
+        duration = int(message.text)
+        
+    from database.requests import update_settings
+    await update_settings(session, price=price, duration=duration)
+    await message.answer("✅ Настройки подписки успешно обновлены!", reply_markup=get_admin_payments_menu())
+    await state.clear()
+
+@router.message(F.text == "Создать промокод")
+async def admin_create_promo_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите текст нового промокода (только английские буквы и цифры):")
+    await state.set_state(AdminCreatePromo.waiting_for_code)
+
+@router.message(AdminCreatePromo.waiting_for_code)
+async def admin_create_promo_code(message: Message, state: FSMContext):
+    code = message.text.strip().upper()
+    import re
+    if not re.match(r'^[A-Z0-9]+$', code):
+        return await message.answer("Недопустимый формат. Используйте только английские буквы и цифры.")
+    await state.update_data(code=code)
+    
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Скидка (в рублях)"), KeyboardButton(text="Бесплатные дни")]
+        ], resize_keyboard=True
+    )
+    await message.answer("Выберите тип промокода:", reply_markup=keyboard)
+    await state.set_state(AdminCreatePromo.waiting_for_type)
+
+@router.message(AdminCreatePromo.waiting_for_type)
+async def admin_create_promo_type(message: Message, state: FSMContext):
+    if message.text == "Скидка (в рублях)":
+        p_type = 'discount'
+        await message.answer("Введите размер скидки в рублях:", reply_markup=get_admin_payments_menu())
+    elif message.text == "Бесплатные дни":
+        p_type = 'free_days'
+        await message.answer("Введите количество бесплатных дней:", reply_markup=get_admin_payments_menu())
+    else:
+        return await message.answer("Выберите тип с помощью кнопок.")
+    
+    await state.update_data(type=p_type)
+    await state.set_state(AdminCreatePromo.waiting_for_value)
+
+@router.message(AdminCreatePromo.waiting_for_value)
+async def admin_create_promo_value(message: Message, state: FSMContext):
+    if not message.text.isdigit():
+        return await message.answer("Введите целое число.")
+    await state.update_data(value=int(message.text))
+    await message.answer("Введите максимальное количество использований промокода:")
+    await state.set_state(AdminCreatePromo.waiting_for_uses)
+
+@router.message(AdminCreatePromo.waiting_for_uses)
+async def admin_create_promo_uses(message: Message, state: FSMContext, session: AsyncSession):
+    if not message.text.isdigit():
+        return await message.answer("Введите целое число.")
+    uses = int(message.text)
+    data = await state.get_data()
+    
+    from database.requests import create_promo_code
+    try:
+        await create_promo_code(
+            session, 
+            code=data['code'], 
+            discount_type=data['type'], 
+            discount_value=data['value'], 
+            max_uses=uses
+        )
+        t_str = "скидка" if data['type'] == 'discount' else "дней"
+        await message.answer(f"✅ Промокод <code>{data['code']}</code> на {data['value']} {t_str} создан! Лимит: {uses}.", parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка (возможно промокод уже существует): {e}")
+    await state.clear()
+
+@router.message(F.text == "Список промокодов")
+async def admin_list_promos(message: Message, session: AsyncSession):
+    if not is_admin(message.from_user.id): return
+    from database.requests import get_all_promo_codes
+    promos = await get_all_promo_codes(session)
+    if not promos:
+        return await message.answer("Нет созданных промокодов.")
+    
+    lines = []
+    for p in promos:
+        t_str = f"Скидка {p.discount_value} ₽" if p.discount_type == 'discount' else f"{p.discount_value} дн. бесплатно"
+        lines.append(f"🎟 <code>{p.code}</code>: {t_str} ({p.uses_count}/{p.max_uses})")
+    
+    await message.answer("Список промокодов:\n" + "\n".join(lines), parse_mode="HTML")
+
+@router.message(F.text == "Удалить промокод")
+async def admin_delete_promo_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введите текст промокода для удаления:")
+    await state.set_state(AdminDeletePromo.waiting_for_code)
+
+@router.message(AdminDeletePromo.waiting_for_code)
+async def admin_delete_promo_code(message: Message, state: FSMContext, session: AsyncSession):
+    from database.requests import delete_promo_code
+    code = message.text.strip()
+    success = await delete_promo_code(session, code)
+    if success:
+        await message.answer(f"✅ Промокод {code} удален.")
+    else:
+        await message.answer(f"❌ Промокод не найден.")
+    await state.clear()
