@@ -22,3 +22,8 @@ async def init_db():
         except Exception:
             pass
 
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN has_accepted_tos BOOLEAN DEFAULT 0;"))
+        except Exception:
+            pass
+
