@@ -244,8 +244,16 @@ async def cmd_superadmin(message: Message, command: CommandObject, session: Asyn
         return
         
 @router.message(Command("admin"))
-async def cmd_admin(message: Message, command: CommandObject):
+async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession):
     if not is_admin(message.from_user.id):
+        return
+
+    if command.args and command.args.strip().lower() == "tos all":
+        from sqlalchemy import update
+        from database.models import User
+        await session.execute(update(User).values(has_accepted_tos=False))
+        await session.commit()
+        await message.answer("✅ Статус TOS сброшен для всех пользователей. При следующем вызове /start они должны будут принять соглашение заново.")
         return
 
     if command.args and command.args.strip().lower() == "help":
