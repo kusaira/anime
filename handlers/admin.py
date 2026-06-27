@@ -269,8 +269,8 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
         success = 0
         for u in users:
             try:
-                await message.bot.send_message(u.user_id, TOS_TEXT_1, parse_mode="HTML")
-                await message.bot.send_message(u.user_id, TOS_TEXT_2, reply_markup=keyboard, parse_mode="HTML")
+                await message.bot.send_message(u.telegram_id, TOS_TEXT_1, parse_mode="HTML")
+                await message.bot.send_message(u.telegram_id, TOS_TEXT_2, reply_markup=keyboard, parse_mode="HTML")
                 success += 1
             except Exception:
                 pass
