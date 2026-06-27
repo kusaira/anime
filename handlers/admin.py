@@ -251,9 +251,32 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
     if command.args and command.args.strip().lower() == "tos all":
         from sqlalchemy import update
         from database.models import User
+        from database.requests import get_all_users
+        from handlers.user import TOS_TEXT_1, TOS_TEXT_2
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        import asyncio
+
         await session.execute(update(User).values(has_accepted_tos=False))
         await session.commit()
-        await message.answer("✅ Статус TOS сброшен для всех пользователей. При следующем вызове /start они должны будут принять соглашение заново.")
+        
+        users = await get_all_users(session)
+        await message.answer(f"✅ Статус TOS сброшен. Начинаю рассылку нового соглашения {len(users)} пользователям...")
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Я согласен", callback_data="accept_tos")]
+        ])
+        
+        success = 0
+        for u in users:
+            try:
+                await message.bot.send_message(u.user_id, TOS_TEXT_1, parse_mode="HTML")
+                await message.bot.send_message(u.user_id, TOS_TEXT_2, reply_markup=keyboard, parse_mode="HTML")
+                success += 1
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
+            
+        await message.answer(f"✅ Рассылка TOS завершена! Успешно доставлено: {success} из {len(users)}.")
         return
 
     if command.args and command.args.strip().lower() == "help":
